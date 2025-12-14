@@ -52,10 +52,34 @@ export function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
                         labelStyle={{ color: '#fff', fontWeight: 'bold' }}
                         itemStyle={{ color: '#fff' }}
                         formatter={(value: number) => formatCurrency(value)}
+                        itemSorter={(item: any) => item.dataKey === 'receitas' ? 0 : 1}
                     />
                     <Legend
                         wrapperStyle={{ paddingTop: '10px' }}
-                        formatter={(value) => value === 'despesas' ? 'Despesas' : 'Receitas'}
+                        content={({ payload }) => {
+                            const orderedPayload = [
+                                payload?.find((item: any) => item.dataKey === 'receitas'),
+                                payload?.find((item: any) => item.dataKey === 'despesas')
+                            ].filter(Boolean)
+
+                            return (
+                                <div className="flex justify-center gap-6 text-sm">
+                                    {orderedPayload.map((item: any) => (
+                                        <div key={item.dataKey} className="flex items-center gap-2">
+                                            <div
+                                                className="w-3 h-3 rounded-sm"
+                                                style={{
+                                                    backgroundColor: item.dataKey === 'receitas' ? '#16a34a' : '#dc2626'
+                                                }}
+                                            />
+                                            <span className="text-gray-700 dark:text-gray-300">
+                                                {item.dataKey === 'receitas' ? 'Receitas' : 'Despesas'}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )
+                        }}
                     />
                     <Area
                         type="monotone"

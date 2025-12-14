@@ -1,6 +1,8 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { ref, onValue, off } from 'firebase/database'
+import { db } from '@/lib/firebase/config'
 import { useAuth } from './AuthContext'
 import { accountService } from '@/lib/services/account.service'
 import { Account } from '@/types'
@@ -24,65 +26,84 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     const [accounts, setAccounts] = useState<Account[]>([])
     const [loading, setLoading] = useState(true)
 
-    const loadAccounts = async () => {
+    useEffect(() => {
         if (!user) {
             setAccounts([])
             setLoading(false)
             return
         }
 
-        try {
-            setLoading(true)
-            const data = await accountService.getAll(user.uid)
+        setLoading(true)
+        const accountsRef = ref(db, `users/${user.uid}/accounts`)
 
-            // Auto-seed se não tiver contas
-            if (data.length === 0) {
-                console.log('Criando conta padrão para novo usuário...')
-                await accountService.seedDefaultAccount(user.uid)
-                const newData = await accountService.getAll(user.uid)
-                setAccounts(newData)
-            } else {
-                setAccounts(data)
+        // Listener em tempo real
+        const unsubscribe = onValue(accountsRef, async (snapshot) => {
+            try {
+                if (!snapshot.exists()) {
+                    // Auto-seed se não tiver contas
+                    console.log('Criando conta padrão para novo usuário...')
+                    await accountService.seedDefaultAccount(user.uid)
+                    // O listener vai capturar a nova conta automaticamente
+                    return
+                }
+
+                const data = snapshot.val()
+                const accountsList = Object.keys(data).map(key => ({
+                    id: key,
+                    ...data[key]
+                }))
+
+                setAccounts(accountsList)
+            } catch (error) {
+                console.error('Erro ao processar contas:', error)
+            } finally {
+                setLoading(false)
             }
-        } catch (error) {
-            console.error('Erro ao carregar contas:', error)
-        } finally {
+        }, (error) => {
+            console.error('Erro no listener de contas:', error)
             setLoading(false)
-        }
-    }
+        })
 
-    useEffect(() => {
-        loadAccounts()
+        // Cleanup: remover listener quando componente desmontar ou user mudar
+        return () => {
+            off(accountsRef)
+            unsubscribe()
+        }
     }, [user])
 
     const createAccount = async (data: Omit<Account, 'id' | 'createdAt' | 'currentBalance'>) => {
         if (!user) return
         await accountService.create(user.uid, data)
-        await loadAccounts()
+        // Listener em tempo real atualiza automaticamente
     }
 
     const updateAccount = async (id: string, data: Partial<Account>) => {
         if (!user) return
         await accountService.update(user.uid, id, data)
-        await loadAccounts()
+        // Listener em tempo real atualiza automaticamente
     }
 
     const deactivateAccount = async (id: string) => {
         if (!user) return
         await accountService.deactivate(user.uid, id)
-        await loadAccounts()
+        // Listener em tempo real atualiza automaticamente
     }
 
     const activateAccount = async (id: string) => {
         if (!user) return
         await accountService.activate(user.uid, id)
-        await loadAccounts()
+        // Listener em tempo real atualiza automaticamente
     }
 
     const deleteAccount = async (id: string) => {
         if (!user) return
         await accountService.delete(user.uid, id)
-        await loadAccounts()
+        // Listener em tempo real atualiza automaticamente
+    }
+
+    const refresh = async () => {
+        // Mantido para compatibilidade, mas o listener já atualiza automaticamente
+        // Não faz nada pois o listener em tempo real cuida disso
     }
 
     const activeAccounts = accounts.filter(acc => acc.isActive)
@@ -96,7 +117,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
             deactivateAccount,
             activateAccount,
             deleteAccount,
-            refresh: loadAccounts,
+            refresh,
             activeAccounts,
         }}>
             {children}

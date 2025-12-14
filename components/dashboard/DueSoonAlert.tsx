@@ -193,7 +193,7 @@ export function DueSoonAlert() {
                             <div className="w-1 h-4 bg-red-500 rounded-full" />
                             Despesas Pendentes
                         </h4>
-                        <ScrollableCards>
+                        <ScrollableCards className="py-2">
                             {pendingExpenses.map(expense => {
                                 // Para parcelas, usar 'date'. Para fixas, usar 'dueDate'
                                 const dueDate = new Date(expense.dueDate || expense.date || Date.now())
@@ -331,7 +331,7 @@ export function DueSoonAlert() {
                             <div className="w-1 h-4 bg-green-500 rounded-full" />
                             Receitas Pendentes
                         </h4>
-                        <ScrollableCards>
+                        <ScrollableCards className="py-2">
                             {pendingIncomes.map(income => {
                                 const dueDate = new Date(income.dueDate!)
                                 const today = new Date()

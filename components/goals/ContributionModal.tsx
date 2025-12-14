@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { useGoals } from '@/contexts/GoalContext'
+import { useAccounts } from '@/contexts/AccountContext'
 import { Button } from '@/components/ui/Button'
-import { X } from 'lucide-react'
+import { X, Wallet, AlertCircle } from 'lucide-react'
 
 interface ContributionModalProps {
     isOpen: boolean
@@ -14,24 +15,49 @@ interface ContributionModalProps {
 
 export function ContributionModal({ isOpen, onClose, goalId, goalName }: ContributionModalProps) {
     const { addContribution } = useGoals()
+    const { activeAccounts } = useAccounts()
+    const [accountId, setAccountId] = useState('')
     const [amount, setAmount] = useState('')
     const [note, setNote] = useState('')
     const [loading, setLoading] = useState(false)
 
     if (!isOpen) return null
 
+    const selectedAccount = activeAccounts.find(acc => acc.id === accountId)
+    const amountValue = parseFloat(amount) || 0
+    const hasInsufficientBalance = selectedAccount && amountValue > selectedAccount.currentBalance
+
+    const formatCurrency = (value: number) => {
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(value)
+    }
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+
+        if (!accountId) {
+            alert('Selecione uma conta de origem')
+            return
+        }
+
+        if (hasInsufficientBalance) {
+            alert('Saldo insuficiente na conta selecionada')
+            return
+        }
+
         setLoading(true)
 
         try {
-            await addContribution(goalId, parseFloat(amount), note || undefined)
+            await addContribution(goalId, accountId, parseFloat(amount), note || undefined)
+            setAccountId('')
             setAmount('')
             setNote('')
             onClose()
-        } catch (error) {
+        } catch (error: any) {
             console.error('Erro ao adicionar aporte:', error)
-            alert('Erro ao adicionar aporte')
+            alert(error.message || 'Erro ao adicionar aporte')
         } finally {
             setLoading(false)
         }
@@ -56,6 +82,35 @@ export function ContributionModal({ isOpen, onClose, goalId, goalName }: Contrib
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {/* Seleção de Conta */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            Conta de Origem *
+                        </label>
+                        <div className="relative">
+                            <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <select
+                                value={accountId}
+                                onChange={(e) => setAccountId(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-green-500 dark:bg-slate-700 dark:text-white appearance-none cursor-pointer"
+                                required
+                            >
+                                <option value="">Selecione uma conta</option>
+                                {activeAccounts.map(account => (
+                                    <option key={account.id} value={account.id}>
+                                        {account.name} - {formatCurrency(account.currentBalance)}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        {activeAccounts.length === 0 && (
+                            <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
+                                Você precisa ter pelo menos uma conta ativa para fazer aportes
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Valor do Aporte */}
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                             Valor do Aporte *
@@ -66,13 +121,22 @@ export function ContributionModal({ isOpen, onClose, goalId, goalName }: Contrib
                             min="0.01"
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-green-500 dark:bg-slate-700 dark:text-white text-lg font-bold"
+                            className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-green-500 dark:bg-slate-700 dark:text-white text-lg font-bold ${hasInsufficientBalance
+                                    ? 'border-red-500 dark:border-red-500'
+                                    : 'border-gray-200 dark:border-slate-600'
+                                }`}
                             placeholder="R$ 0,00"
                             required
-                            autoFocus
                         />
+                        {hasInsufficientBalance && (
+                            <div className="mt-2 flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                                <AlertCircle className="w-4 h-4" />
+                                <span>Saldo insuficiente. Disponível: {formatCurrency(selectedAccount.currentBalance)}</span>
+                            </div>
+                        )}
                     </div>
 
+                    {/* Nota */}
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                             Nota (opcional)
@@ -82,7 +146,7 @@ export function ContributionModal({ isOpen, onClose, goalId, goalName }: Contrib
                             value={note}
                             onChange={(e) => setNote(e.target.value)}
                             className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-green-500 dark:bg-slate-700 dark:text-white"
-                            placeholder="Ex: Salário de dezembro"
+                            placeholder="Ex: Aporte mensal"
                         />
                     </div>
 
@@ -101,7 +165,7 @@ export function ContributionModal({ isOpen, onClose, goalId, goalName }: Contrib
                             type="submit"
                             variant="primary"
                             className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600"
-                            disabled={loading}
+                            disabled={loading || activeAccounts.length === 0 || hasInsufficientBalance}
                         >
                             {loading ? 'Salvando...' : 'Adicionar'}
                         </Button>

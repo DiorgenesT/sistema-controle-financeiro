@@ -150,7 +150,7 @@ export const invoiceService = {
             throw new Error('Esta fatura já foi paga')
         }
 
-        // 1. Criar transação de pagamento
+        // 1. Criar transação de pagamento (já debita automaticamente da conta via transaction.service)
         const paymentRef = push(ref(db, `users/${userId}/transactions`))
         const monthName = new Date(invoice.year, invoice.month).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
@@ -162,7 +162,7 @@ export const invoiceService = {
             categoryId: 'default-expense', // Categoria padrão
             accountId,
             date: paymentDate,
-            isPaid: true,
+            isPaid: true, // Isso já causa débito automático via transaction.service
             assignedTo: userId,
             createdAt: Date.now()
         })
@@ -180,12 +180,8 @@ export const invoiceService = {
         updates[`users/${userId}/invoices/${invoiceId}/paidFromAccountId`] = accountId
         updates[`users/${userId}/invoices/${invoiceId}/paymentTransactionId`] = paymentRef.key
 
-        // 4. Atualizar saldo da conta
-        const accountSnapshot = await get(ref(db, `users/${userId}/accounts/${accountId}`))
-        if (accountSnapshot.exists()) {
-            const currentBalance = accountSnapshot.val().currentBalance || 0
-            updates[`users/${userId}/accounts/${accountId}/currentBalance`] = currentBalance - invoice.totalAmount
-        }
+        // REMOVIDO: Débito direto da conta (causava dupla contabilização)
+        // A transação criada acima com isPaid:true já debita automaticamente
 
         // Aplicar todas as atualizações atomicamente
         await update(ref(db), updates)

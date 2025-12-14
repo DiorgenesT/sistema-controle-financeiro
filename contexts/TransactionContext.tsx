@@ -1,6 +1,8 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { ref, onValue, off } from 'firebase/database'
+import { db } from '@/lib/firebase/config'
 import { useAuth } from './AuthContext'
 import { useAccounts } from './AccountContext'
 import { transactionService } from '@/lib/services/transaction.service'
@@ -42,7 +44,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     const [filterMonth, setFilterMonth] = useState(today.getMonth())
     const [filterYear, setFilterYear] = useState(today.getFullYear())
 
-    const loadTransactions = async () => {
+    useEffect(() => {
         if (!user) {
             setTransactions([])
             setStats({ income: 0, expense: 0, balance: 0 })
@@ -50,24 +52,53 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             return
         }
 
-        try {
-            setLoading(true)
-            // Buscar transações do mês selecionado
-            const data = await transactionService.getAll(user.uid, filterMonth, filterYear)
-            setTransactions(data)
+        setLoading(true)
+        const transactionsRef = ref(db, `users/${user.uid}/transactions`)
 
-            // Calcular estatísticas
-            const calculatedStats = transactionService.calculateStats(data)
-            setStats(calculatedStats)
-        } catch (error) {
-            console.error('Erro ao carregar transações:', error)
-        } finally {
+        // Listener em tempo real
+        const unsubscribe = onValue(transactionsRef, (snapshot) => {
+            try {
+                if (!snapshot.exists()) {
+                    setTransactions([])
+                    setStats({ income: 0, expense: 0, balance: 0 })
+                    setLoading(false)
+                    return
+                }
+
+                const data = snapshot.val()
+                const allTransactions: Transaction[] = Object.keys(data).map(key => ({
+                    id: key,
+                    ...data[key]
+                }))
+
+                // Filtrar por mês/ano
+                const startDate = new Date(filterYear, filterMonth, 1).getTime()
+                const endDate = new Date(filterYear, filterMonth + 1, 0, 23, 59, 59).getTime()
+
+                const filtered = allTransactions.filter(t =>
+                    t.date >= startDate && t.date <= endDate
+                ).sort((a, b) => b.date - a.date)
+
+                setTransactions(filtered)
+
+                // Calcular estatísticas
+                const calculatedStats = transactionService.calculateStats(filtered)
+                setStats(calculatedStats)
+            } catch (error) {
+                console.error('Erro ao processar transações:', error)
+            } finally {
+                setLoading(false)
+            }
+        }, (error) => {
+            console.error('Erro no listener de transações:', error)
             setLoading(false)
-        }
-    }
+        })
 
-    useEffect(() => {
-        loadTransactions()
+        // Cleanup: remover listener quando componente desmontar ou user/filtros mudarem
+        return () => {
+            off(transactionsRef)
+            unsubscribe()
+        }
     }, [user, filterMonth, filterYear])
 
     const createTransaction = async (data: Omit<Transaction, 'id' | 'createdAt'>) => {
@@ -99,9 +130,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         }
 
         await transactionService.create(user.uid, data)
-        await loadTransactions()
-        // NÃO chamar refreshAccounts aqui automaticamente
-        // Deixar para o modal chamar manualmente após criar TODAS as transações
+        // Listener em tempo real atualiza automaticamente - sem necessidade de refresh
     }
 
     const createTransactionAndRefresh = async (data: Omit<Transaction, 'id' | 'createdAt'>) => {
@@ -131,22 +160,19 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         }
 
         await transactionService.create(user.uid, data)
-        await loadTransactions()
-        await refreshAccounts() // Atualizar saldo das contas
+        // Listeners em tempo real atualizam automaticamente
     }
 
     const updateTransaction = async (id: string, data: Partial<Transaction>) => {
         if (!user) return
         await transactionService.update(user.uid, id, data)
-        await loadTransactions()
-        await refreshAccounts() // Atualizar saldo das contas
+        // Listeners em tempo real atualizam automaticamente
     }
 
     const deleteTransaction = async (id: string) => {
         if (!user) return
         await transactionService.delete(user.uid, id)
-        await loadTransactions()
-        await refreshAccounts() // Atualizar saldo das contas
+        // Listeners em tempo real atualizam automaticamente
     }
 
     return (
@@ -162,7 +188,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             createTransactionAndRefresh,
             updateTransaction,
             deleteTransaction,
-            refresh: loadTransactions,
+            refresh: async () => { }, // Mantido para compatibilidade, mas listener cuida disso
         }}>
             {children}
         </TransactionContext.Provider>
