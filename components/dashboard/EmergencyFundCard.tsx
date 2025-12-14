@@ -3,19 +3,57 @@
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { useAuth } from '@/contexts/AuthContext'
+import { checkUserDataStatus, getInsightAvailabilityMessage, UserDataStatus } from '@/lib/utils/insightsHelper'
+import { EmptyStateCard } from './EmptyStateCard'
 import { emergencyFundService, EmergencyFundStatus } from '@/lib/services/emergency-fund.service'
-import { Shield, Plus, TrendingUp } from 'lucide-react'
+import { Shield, Plus, TrendingUp, Building2, Settings } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { BankSetupModal } from '@/components/goals/BankSetupModal'
+import { ref, update } from 'firebase/database'
+import { db } from '@/lib/firebase/config'
 
 export function EmergencyFundCard() {
     const { user } = useAuth()
     const router = useRouter()
     const [data, setData] = useState<EmergencyFundStatus | null>(null)
     const [loading, setLoading] = useState(true)
+    const [showBankSetup, setShowBankSetup] = useState(false)
+    const [goalId, setGoalId] = useState<string | null>(null)
+    const [dataStatus, setDataStatus] = useState<UserDataStatus | null>(null)
+    const [checkingData, setCheckingData] = useState(true)
 
     useEffect(() => {
-        loadData()
+        checkMinimumData()
     }, [user])
+
+    useEffect(() => {
+        if (dataStatus?.hasMinimumData) {
+            loadData()
+        }
+    }, [user, dataStatus])
+
+    const checkMinimumData = async () => {
+        if (!user) {
+            setCheckingData(false)
+            setLoading(false)
+            return
+        }
+
+        try {
+            const status = await checkUserDataStatus(user.uid)
+            setDataStatus(status)
+
+            // Se não tem dados mínimos, não precisa carregar
+            if (!status.hasMinimumData) {
+                setLoading(false)
+            }
+        } catch (error) {
+            console.error('Erro ao verificar dados:', error)
+            setLoading(false)
+        } finally {
+            setCheckingData(false)
+        }
+    }
 
     const loadData = async () => {
         if (!user) return
@@ -24,11 +62,59 @@ export function EmergencyFundCard() {
             setLoading(true)
             const result = await emergencyFundService.getStatus(user.uid)
             setData(result)
+
+            // Se tem meta mas não tem banco configurado, mostrar modal
+            if (result.hasGoal && result.goalInfo) {
+                setGoalId(result.goalInfo.id)
+                if (!result.goalInfo.bankName) {
+                    // Pequeno delay para não aparecer muito rápido
+                    setTimeout(() => setShowBankSetup(true), 500)
+                }
+            }
         } catch (error) {
             console.error('Erro ao carregar reserva de emergência:', error)
         } finally {
             setLoading(false)
         }
+    }
+
+    const handleSaveBank = async (bankName: string) => {
+        if (!user || !goalId) return
+
+        try {
+            await update(ref(db, `users/${user.uid}/goals/${goalId}`), {
+                bankName,
+                isEmergencyFund: true
+            })
+
+            // Recarregar dados
+            loadData()
+        } catch (error) {
+            console.error('Erro ao salvar banco:', error)
+        }
+    }
+
+    if (checkingData || loading) {
+        return (
+            <Card className="animate-pulse h-[140px]">
+                <div className="h-full bg-gray-200 dark:bg-slate-700 rounded" />
+            </Card>
+        )
+    }
+
+    // Mostrar empty state se não tem dados suficientes
+    if (!dataStatus?.hasMinimumData) {
+        const message = getInsightAvailabilityMessage(dataStatus!, 'emergency')
+        return (
+            <EmptyStateCard
+                icon={Shield}
+                title="Reserva de Emergência"
+                message={message}
+                availableDate={dataStatus?.availableDate}
+                hint="Vou calcular o valor ideal baseado nas suas despesas fixas!"
+                className="h-auto"
+            />
+        )
     }
 
     const formatCurrency = (value: number) => {
@@ -109,6 +195,28 @@ export function EmergencyFundCard() {
                             <span>•</span>
                             <span>{Math.round(data.progress)}%</span>
                         </div>
+
+                        {/* Banco */}
+                        {data.goalInfo?.bankName ? (
+                            <div className="flex items-center gap-1.5 mt-2 bg-white/15 rounded-lg px-2 py-1 w-fit">
+                                <Building2 className="w-3 h-3" />
+                                <span className="text-xs font-medium">
+                                    {data.goalInfo.bankName}
+                                    {data.goalInfo.accountInfo && ` • ${data.goalInfo.accountInfo}`}
+                                </span>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    setShowBankSetup(true)
+                                }}
+                                className="flex items-center gap-1 mt-2 text-xs font-medium opacity-75 hover:opacity-100 transition-opacity"
+                            >
+                                <Settings className="w-3 h-3" />
+                                Configurar banco
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <div className="flex-1 flex flex-col justify-center">
@@ -128,6 +236,13 @@ export function EmergencyFundCard() {
                     </div>
                 )}
             </div>
+
+            {/* Modal de Configuração de Banco */}
+            <BankSetupModal
+                isOpen={showBankSetup}
+                onClose={() => setShowBankSetup(false)}
+                onSave={handleSaveBank}
+            />
         </Card>
     )
 }

@@ -13,6 +13,7 @@ import { useCategories } from '@/contexts/CategoryContext'
 import { useAccounts } from '@/contexts/AccountContext'
 import { useFamilyMembers } from '@/contexts/FamilyContext'
 import { useCreditCards } from '@/contexts/CreditCardContext'
+import { emergencyFundService } from '@/lib/services/emergency-fund.service'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTransactions } from '@/contexts/TransactionContext'
 import { CreateCategoryModal } from '@/components/categories/CreateCategoryModal'
@@ -37,6 +38,7 @@ export function ExpenseModal({ isOpen, onClose, initialType = 'cash', transactio
 
     const [loading, setLoading] = useState(false)
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
+    const [emergencyGoal, setEmergencyGoal] = useState<any>(null)
 
     // Form States
     const [expenseType, setExpenseType] = useState<'fixed' | 'cash' | 'installment'>(initialType)
@@ -79,6 +81,22 @@ export function ExpenseModal({ isOpen, onClose, initialType = 'cash', transactio
             }
         }
     }, [isOpen, transactionToEdit, initialType, user])
+
+    // Carregar meta de emergência
+    useEffect(() => {
+        const loadEmergencyGoal = async () => {
+            if (!user) return
+            try {
+                const status = await emergencyFundService.getStatus(user.uid)
+                if (status.hasGoal && status.goalInfo) {
+                    setEmergencyGoal(status.goalInfo)
+                }
+            } catch (error) {
+                console.error('Erro ao carregar meta de emergência:', error)
+            }
+        }
+        loadEmergencyGoal()
+    }, [user])
 
     const expenseCategories = categories.filter(c => c.type === 'expense' && !c.isArchived)
     const activeAccounts = accounts.filter(a => a.isActive)
@@ -187,6 +205,7 @@ export function ExpenseModal({ isOpen, onClose, initialType = 'cash', transactio
                 // Despesa Parcelada
                 const data = {
                     ...baseData,
+                    expenseType: 'installment', // IMPORTANTE: sobrescrever o 'variable' do baseData
                     accountId: accountId || '', // Conta para débito futuro
                     cardId: cardId || undefined, // Opcional agora
                     date: new Date(date).getTime(),
@@ -270,8 +289,8 @@ export function ExpenseModal({ isOpen, onClose, initialType = 'cash', transactio
                                                 type="button"
                                                 onClick={() => setExpenseType('installment')}
                                                 className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${expenseType === 'installment'
-                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-600'
-                                                    : 'border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700'
+                                                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 shadow-lg shadow-red-500/20'
+                                                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
                                                     }`}
                                             >
                                                 <CreditCardIcon className="w-6 h-6 mb-1" />
@@ -281,8 +300,8 @@ export function ExpenseModal({ isOpen, onClose, initialType = 'cash', transactio
                                                 type="button"
                                                 onClick={() => setExpenseType('fixed')}
                                                 className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${expenseType === 'fixed'
-                                                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
-                                                    : 'border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700'
+                                                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 shadow-lg shadow-red-500/20'
+                                                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
                                                     }`}
                                             >
                                                 <Clock className="w-6 h-6 mb-1" />
@@ -347,7 +366,7 @@ export function ExpenseModal({ isOpen, onClose, initialType = 'cash', transactio
                                                         setCategoryId(e.target.value)
                                                     }
                                                 }}
-                                                className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                                                className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-red-500 focus:ring-4 focus:ring-red-500/20 select-expense bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 font-medium rounded-xl outline-none transition-all"
                                                 required
                                             >
                                                 <option value="">Selecione...</option>
@@ -370,15 +389,31 @@ export function ExpenseModal({ isOpen, onClose, initialType = 'cash', transactio
                                                     <select
                                                         value={accountId}
                                                         onChange={(e) => {
-                                                            setAccountId(e.target.value)
-                                                            if (e.target.value) setCardId('') // Limpa cartão se selecionar conta
+                                                            const value = e.target.value
+                                                            setAccountId(value)
+                                                            if (value) setCardId('') // Limpa cartão se selecionar conta
+
+                                                            // Alerta ao selecionar reserva
+                                                            if (value.startsWith('goal-')) {
+                                                                if (!confirm('⚠️ Atenção! Você está usando sua Reserva de Emergência.\n\nEste dinheiro deve ser usado apenas em situações de emergência real.\n\nDeseja continuar?')) {
+                                                                    setAccountId('') // Cancela seleção
+                                                                }
+                                                            }
                                                         }}
-                                                        className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                                                        className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-red-500 focus:ring-4 focus:ring-red-500/20 select-expense bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 font-medium rounded-xl outline-none transition-all"
                                                     >
                                                         <option value="">Nenhuma</option>
                                                         {activeAccounts.map(account => (
                                                             <option key={account.id} value={account.id}>{account.name}</option>
                                                         ))}
+                                                        {emergencyGoal && emergencyGoal.currentAmount > 0 && (
+                                                            <option
+                                                                value={`goal-${emergencyGoal.id}`}
+                                                                style={{ color: '#f97316', fontWeight: 'bold' }}
+                                                            >
+                                                                🛡️ Reserva de Emergência - R$ {emergencyGoal.currentAmount.toFixed(2)}
+                                                            </option>
+                                                        )}
                                                     </select>
                                                 </div>
                                                 <div>
@@ -391,7 +426,7 @@ export function ExpenseModal({ isOpen, onClose, initialType = 'cash', transactio
                                                             setCardId(e.target.value)
                                                             if (e.target.value) setAccountId('') // Limpa conta se selecionar cartão
                                                         }}
-                                                        className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                                                        className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-red-500 focus:ring-4 focus:ring-red-500/20 select-expense bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 font-medium rounded-xl outline-none transition-all"
                                                     >
                                                         <option value="">Nenhum</option>
                                                         {activeCards.map(card => (
@@ -418,7 +453,7 @@ export function ExpenseModal({ isOpen, onClose, initialType = 'cash', transactio
                                                         <select
                                                             value={cardId}
                                                             onChange={(e) => setCardId(e.target.value)}
-                                                            className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                                                            className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-red-500 focus:ring-4 focus:ring-red-500/20 select-expense bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 font-medium rounded-xl outline-none transition-all"
                                                         >
                                                             <option value="">Sem cartão</option>
                                                             {activeCards.map(card => (
@@ -433,7 +468,7 @@ export function ExpenseModal({ isOpen, onClose, initialType = 'cash', transactio
                                                         <select
                                                             value={installments}
                                                             onChange={(e) => setInstallments(e.target.value)}
-                                                            className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                                                            className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-red-500 focus:ring-4 focus:ring-red-500/20 select-expense bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 font-medium rounded-xl outline-none transition-all"
                                                             disabled={!!transactionToEdit}
                                                         >
                                                             {Array.from({ length: 24 }, (_, i) => i + 1).map(num => (
@@ -452,7 +487,7 @@ export function ExpenseModal({ isOpen, onClose, initialType = 'cash', transactio
                                                         <select
                                                             value={accountId}
                                                             onChange={(e) => setAccountId(e.target.value)}
-                                                            className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                                                            className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-red-500 focus:ring-4 focus:ring-red-500/20 select-expense bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 font-medium rounded-xl outline-none transition-all"
                                                             required
                                                         >
                                                             <option value="">Selecione a conta...</option>
@@ -519,15 +554,31 @@ export function ExpenseModal({ isOpen, onClose, initialType = 'cash', transactio
                                                     <select
                                                         value={accountId}
                                                         onChange={(e) => {
-                                                            setAccountId(e.target.value)
-                                                            if (e.target.value) setCardId('') // Limpa cartão se selecionar conta
+                                                            const value = e.target.value
+                                                            setAccountId(value)
+                                                            if (value) setCardId('') // Limpa cartão se selecionar conta
+
+                                                            // Alerta ao selecionar reserva
+                                                            if (value.startsWith('goal-')) {
+                                                                if (!confirm('⚠️ Atenção! Você está usando sua Reserva de Emergência.\n\nEste dinheiro deve ser usado apenas em situações de emergência real.\n\nDeseja continuar?')) {
+                                                                    setAccountId('') // Cancela seleção
+                                                                }
+                                                            }
                                                         }}
-                                                        className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                                                        className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-red-500 focus:ring-4 focus:ring-red-500/20 select-expense bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 font-medium rounded-xl outline-none transition-all"
                                                     >
                                                         <option value="">Nenhuma</option>
                                                         {activeAccounts.map(acc => (
                                                             <option key={acc.id} value={acc.id}>{acc.name}</option>
                                                         ))}
+                                                        {emergencyGoal && emergencyGoal.currentAmount > 0 && (
+                                                            <option
+                                                                value={`goal-${emergencyGoal.id}`}
+                                                                style={{ color: '#f97316', fontWeight: 'bold' }}
+                                                            >
+                                                                🛡️ Reserva de Emergência - R$ {emergencyGoal.currentAmount.toFixed(2)}
+                                                            </option>
+                                                        )}
                                                     </select>
                                                 </div>
                                                 <div>
@@ -540,7 +591,7 @@ export function ExpenseModal({ isOpen, onClose, initialType = 'cash', transactio
                                                             setCardId(e.target.value)
                                                             if (e.target.value) setAccountId('') // Limpa conta se selecionar cartão
                                                         }}
-                                                        className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                                                        className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-red-500 focus:ring-4 focus:ring-red-500/20 select-expense bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 font-medium rounded-xl outline-none transition-all"
                                                     >
                                                         <option value="">Nenhum</option>
                                                         {activeCards.map(card => (
@@ -564,7 +615,7 @@ export function ExpenseModal({ isOpen, onClose, initialType = 'cash', transactio
                                             <select
                                                 value={assignedTo}
                                                 onChange={(e) => setAssignedTo(e.target.value)}
-                                                className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                                                className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-red-500 focus:ring-4 focus:ring-red-500/20 select-expense bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 font-medium rounded-xl outline-none transition-all"
                                             >
                                                 <option value={user?.uid}>{userData?.name || 'Você'}</option>
                                                 <option value="family">Família (Todos)</option>
@@ -602,7 +653,7 @@ export function ExpenseModal({ isOpen, onClose, initialType = 'cash', transactio
                         </div>
                     </div>
                 </Dialog>
-            </Transition>
+            </Transition >
 
             <CreateCategoryModal
                 isOpen={isCategoryModalOpen}

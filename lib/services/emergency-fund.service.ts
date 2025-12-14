@@ -1,17 +1,15 @@
 import { ref, get, set, push } from 'firebase/database'
 import { db } from '@/lib/firebase/config'
-import { Transaction, Goal } from '@/types'
+import { Goal, Transaction } from '@/types'
 
-interface EmergencyFundStatus {
+export interface EmergencyFundStatus {
     hasGoal: boolean
-    goalId?: string
     currentAmount: number
-    targetAmount: number        // 6 meses de despesas
-    monthsCovered: number        // Quantos meses cobre atualmente
-    monthlyExpenses: number      // Despesa mensal média
-    suggestedContribution: number // Quanto contribuir por mês
-    progress: number             // % (0-100)
-    daysToTarget: number         // Dias para atingir meta
+    targetAmount: number
+    progress: number // percentual 0-100
+    monthsCovered: number // quantos meses de despesas cobre
+    status: 'none' | 'building' | 'adequate' | 'excellent'
+    goalInfo?: Goal // Informações completas da meta
 }
 
 class EmergencyFundService {
@@ -52,23 +50,20 @@ class EmergencyFundService {
                 ? (goal.currentAmount / goal.targetAmount) * 100
                 : 0
 
-            const remaining = goal.targetAmount - goal.currentAmount
-            const suggestedContribution = remaining > 0 ? Math.ceil(remaining / 12) : 0 // 12 meses para completar
-
-            const daysToTarget = goal.deadline
-                ? Math.ceil((goal.deadline - Date.now()) / (1000 * 60 * 60 * 24))
-                : 365
+            let status: 'none' | 'building' | 'adequate' | 'excellent' = 'building'
+            if (monthsCovered >= 6) status = 'excellent'
+            else if (monthsCovered >= 3) status = 'adequate'
+            else if (monthsCovered > 0) status = 'building'
+            else status = 'none'
 
             return {
                 hasGoal: true,
-                goalId: goal.id,
                 currentAmount: goal.currentAmount,
                 targetAmount: goal.targetAmount,
                 monthsCovered,
-                monthlyExpenses,
-                suggestedContribution,
                 progress,
-                daysToTarget
+                status,
+                goalInfo: goal  // Incluir meta completa
             }
         }
 
@@ -78,10 +73,8 @@ class EmergencyFundService {
             currentAmount: 0,
             targetAmount,
             monthsCovered: 0,
-            monthlyExpenses,
-            suggestedContribution: targetAmount > 0 ? Math.ceil(targetAmount / 12) : 0,
             progress: 0,
-            daysToTarget: 365
+            status: 'none'
         }
     }
 
@@ -143,13 +136,44 @@ class EmergencyFundService {
     }
 
     /**
+     * Contribuir para a reserva
+     */
+    async contribute(userId: string, amount: number, note?: string): Promise<void> {
+        const status = await this.getStatus(userId)
+
+        if (!status.hasGoal || !status.goalInfo) {
+            throw new Error('Meta de emergência não encontrada')
+        }
+
+        const goalRef = ref(db, `users/${userId}/goals/${status.goalInfo.id}`)
+        const currentGoal = status.goalInfo
+
+        const newContribution = {
+            id: push(ref(db)).key!,
+            amount,
+            date: Date.now(),
+            note
+        }
+
+        const updatedContributions = [...currentGoal.contributions, newContribution]
+        const newCurrentAmount = currentGoal.currentAmount + amount
+
+        await set(goalRef, {
+            ...currentGoal,
+            currentAmount: newCurrentAmount,
+            contributions: updatedContributions,
+            updatedAt: Date.now()
+        })
+    }
+
+    /**
      * Cria meta de reserva de emergência automaticamente
      */
     async createEmergencyGoal(userId: string): Promise<string> {
         const status = await this.getStatus(userId)
 
         if (status.hasGoal) {
-            return status.goalId!
+            return status.goalInfo!.id
         }
 
         const goalsRef = ref(db, `users/${userId}/goals`)
@@ -177,4 +201,3 @@ class EmergencyFundService {
 }
 
 export const emergencyFundService = new EmergencyFundService()
-export type { EmergencyFundStatus }

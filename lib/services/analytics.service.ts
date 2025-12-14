@@ -196,14 +196,14 @@ export const analyticsService = {
         const data = snapshot.val()
         const transactions: Transaction[] = Object.keys(data).map(key => ({ id: key, ...data[key] }))
 
-        // Gastos do mês atual
+        // Gastos do mês atual (somente transações pagas)
         const currentMonthExpenses = transactions
-            .filter(t => t.type === 'expense' && t.date >= currentMonthStart)
+            .filter(t => t.type === 'expense' && t.date >= currentMonthStart && t.isPaid)
             .reduce((sum, t) => sum + t.amount, 0)
 
-        // Gastos do mês passado
+        // Gastos do mês passado (somente transações pagas)
         const lastMonthExpenses = transactions
-            .filter(t => t.type === 'expense' && t.date >= lastMonthStart && t.date <= lastMonthEnd)
+            .filter(t => t.type === 'expense' && t.date >= lastMonthStart && t.date <= lastMonthEnd && t.isPaid)
             .reduce((sum, t) => sum + t.amount, 0)
 
         // Insight 1: Comparação com mês anterior
@@ -227,10 +227,10 @@ export const analyticsService = {
             }
         }
 
-        // Insight 2: Categoria com maior gasto
+        // Insight 2: Categoria com maior gasto (somente pagas)
         const categoryExpenses = new Map<string, number>()
         transactions
-            .filter(t => t.type === 'expense' && t.date >= currentMonthStart)
+            .filter(t => t.type === 'expense' && t.date >= currentMonthStart && t.isPaid)
             .forEach(t => {
                 const current = categoryExpenses.get(t.categoryId) || 0
                 categoryExpenses.set(t.categoryId, current + t.amount)

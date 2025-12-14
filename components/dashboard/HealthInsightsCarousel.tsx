@@ -4,13 +4,16 @@ import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Activity, TrendingUp, AlertTriangle, CheckCircle2, DollarSign, TrendingDown, Shield, Info, Plus } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTransactions } from '@/contexts/TransactionContext'
 import { financialHealthService, FinancialHealthScore } from '@/lib/services/financial-health.service'
 import { dailyBudgetService, DailyBudgetData } from '@/lib/services/daily-budget.service'
 import { emergencyFundService, EmergencyFundStatus } from '@/lib/services/emergency-fund.service'
+import { checkUserDataStatus, UserDataStatus } from '@/lib/utils/insightsHelper'
 import { useRouter } from 'next/navigation'
 
 export function HealthInsightsCarousel() {
     const { user } = useAuth()
+    const { transactions, stats } = useTransactions()
     const router = useRouter()
     const [currentIndex, setCurrentIndex] = useState(0)
     const [isTransitioning, setIsTransitioning] = useState(false)
@@ -20,6 +23,8 @@ export function HealthInsightsCarousel() {
     const [budgetData, setBudgetData] = useState<DailyBudgetData | null>(null)
     const [emergencyData, setEmergencyData] = useState<EmergencyFundStatus | null>(null)
     const [loading, setLoading] = useState(true)
+    const [dataStatus, setDataStatus] = useState<UserDataStatus | null>(null)
+    const [checkingData, setCheckingData] = useState(true)
 
     const insights = [
         { id: 'health', name: 'Saúde Financeira' },
@@ -49,10 +54,40 @@ export function HealthInsightsCarousel() {
         }
     }, [insights.length])
 
-    // Carregar dados
+    // Verificar dados mínimos primeiro
     useEffect(() => {
-        loadAllData()
+        checkMinimumData()
     }, [user])
+
+    // Carregar dados apenas se tiver dados mínimos
+    useEffect(() => {
+        if (dataStatus?.hasMinimumData) {
+            loadAllData()
+        }
+    }, [user, transactions, stats, dataStatus])
+
+    const checkMinimumData = async () => {
+        if (!user) {
+            setCheckingData(false)
+            setLoading(false)
+            return
+        }
+
+        try {
+            const status = await checkUserDataStatus(user.uid)
+            setDataStatus(status)
+
+            // Se não tem dados mínimos, não precisa carregar
+            if (!status.hasMinimumData) {
+                setLoading(false)
+            }
+        } catch (error) {
+            console.error('Erro ao verificar dados:', error)
+            setLoading(false)
+        } finally {
+            setCheckingData(false)
+        }
+    }
 
     const loadAllData = async () => {
         if (!user) return
@@ -90,12 +125,81 @@ export function HealthInsightsCarousel() {
         }).format(value)
     }
 
+
     const currentInsight = insights[currentIndex]
 
-    if (loading) {
+    if (checkingData || loading) {
         return (
             <Card className="animate-pulse h-[140px]">
                 <div className="h-full bg-gray-200 dark:bg-slate-700 rounded" />
+            </Card>
+        )
+    }
+
+
+    // Mostrar empty state se não tem dados suficientes
+    if (!dataStatus?.hasMinimumData) {
+        // Rotacionar entre as mensagens dos 3 cards
+        const emptyMessages = [
+            {
+                icon: Activity,
+                title: 'Saúde Financeira',
+                message: 'Em análise...',
+                hint: 'Disponível em',
+                gradient: 'from-blue-500 to-cyan-600'
+            },
+            {
+                icon: DollarSign,
+                title: 'Seguro Gastar Hoje',
+                message: 'Calculando...',
+                hint: 'Disponível em',
+                gradient: 'from-purple-500 to-purple-700'
+            },
+            {
+                icon: Shield,
+                title: 'Reserva de Emergência',
+                message: 'Analisando dados...',
+                hint: 'Disponível em',
+                gradient: 'from-teal-600 to-cyan-600'
+            }
+        ]
+
+        const current = emptyMessages[currentIndex]
+        const Icon = current.icon
+        const dateStr = dataStatus?.availableDate
+            ? dataStatus.availableDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })
+            : '1º do próximo mês'
+
+        return (
+            <Card
+                className={`overflow-hidden text-white border-none p-5 h-[140px] relative group transition-all duration-300 bg-gradient-to-br ${current.gradient}`}
+            >
+                {/* Background decoration */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full -ml-12 -mb-12" />
+
+                {/* Content */}
+                <div className="relative z-10 h-full flex flex-col justify-between">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
+                            <Icon className="w-4 h-4" />
+                        </div>
+                        <span className="text-xs font-semibold opacity-90">{current.title}</span>
+                    </div>
+
+                    <div className="flex-1 flex flex-col justify-center gap-2">
+                        <p className="text-xl font-bold opacity-90">
+                            {current.message}
+                        </p>
+                        <p className="text-xs opacity-70">
+                            {current.hint} <span className="font-semibold">{dateStr}</span>
+                        </p>
+                    </div>
+
+                    <p className="text-xs opacity-50 italic mt-1">
+                        Preciso de 1 mês de dados
+                    </p>
+                </div>
             </Card>
         )
     }

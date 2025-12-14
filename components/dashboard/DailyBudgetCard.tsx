@@ -3,18 +3,53 @@
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTransactions } from '@/contexts/TransactionContext'
+import { checkUserDataStatus, getInsightAvailabilityMessage, UserDataStatus } from '@/lib/utils/insightsHelper'
+import { EmptyStateCard } from './EmptyStateCard'
 import { dailyBudgetService, DailyBudgetData } from '@/lib/services/daily-budget.service'
 import { DollarSign, TrendingUp, TrendingDown, Shield, Info } from 'lucide-react'
 
 export function DailyBudgetCard() {
     const { user } = useAuth()
+    const { transactions, stats } = useTransactions()
     const [data, setData] = useState<DailyBudgetData | null>(null)
     const [loading, setLoading] = useState(true)
     const [showDetails, setShowDetails] = useState(false)
+    const [dataStatus, setDataStatus] = useState<UserDataStatus | null>(null)
+    const [checkingData, setCheckingData] = useState(true)
 
     useEffect(() => {
-        loadData()
+        checkMinimumData()
     }, [user])
+
+    useEffect(() => {
+        if (dataStatus?.hasMinimumData) {
+            loadData()
+        }
+    }, [user, transactions, stats, dataStatus])
+
+    const checkMinimumData = async () => {
+        if (!user) {
+            setCheckingData(false)
+            setLoading(false)
+            return
+        }
+
+        try {
+            const status = await checkUserDataStatus(user.uid)
+            setDataStatus(status)
+
+            // Se não tem dados mínimos, não precisa carregar
+            if (!status.hasMinimumData) {
+                setLoading(false)
+            }
+        } catch (error) {
+            console.error('Erro ao verificar dados:', error)
+            setLoading(false)
+        } finally {
+            setCheckingData(false)
+        }
+    }
 
     const loadData = async () => {
         if (!user) return
@@ -38,11 +73,33 @@ export function DailyBudgetCard() {
         }).format(value)
     }
 
-    if (loading) {
+    if (checkingData || loading) {
+        console.log('🔄 [DailyBudget] Loading...', { checkingData, loading })
         return (
             <Card className="animate-pulse h-[140px]">
                 <div className="h-full bg-gray-200 dark:bg-slate-700 rounded" />
             </Card>
+        )
+    }
+
+    console.log('✅ [DailyBudget] Render final:', {
+        hasMinimumData: dataStatus?.hasMinimumData,
+        dataStatus
+    })
+
+    // Mostrar empty state se não tem dados suficientes
+    if (!dataStatus?.hasMinimumData) {
+        console.log('📭 [DailyBudget] Mostrando EmptyStateCard')
+        const message = getInsightAvailabilityMessage(dataStatus!, 'dailyBudget')
+        return (
+            <EmptyStateCard
+                icon={DollarSign}
+                title="Quanto Posso Gastar Hoje?"
+                message={message}
+                availableDate={dataStatus?.availableDate}
+                hint="Preciso analisar sua média de gastos para calcular isso!"
+                className="h-auto"
+            />
         )
     }
 

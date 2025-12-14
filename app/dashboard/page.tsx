@@ -12,6 +12,11 @@ import { QuickInsightsWidget } from '@/components/dashboard/QuickInsightsWidget'
 import { GoalsCarouselCompact } from '@/components/dashboard/GoalsCarouselCompact'
 import { HealthInsightsCarousel } from '@/components/dashboard/HealthInsightsCarousel'
 import { IncomeExpenseCarousel } from '@/components/dashboard/IncomeExpenseCarousel'
+import { DashboardCharts } from '@/components/charts/DashboardCharts'
+import { MonthlyRetrospective } from '@/components/dashboard/MonthlyRetrospective'
+import { SmartInsightsPanel } from '@/components/dashboard/SmartInsightsPanel'
+import { WeatherAnimation } from '@/components/weather/WeatherAnimation'
+import { useWeather } from '@/hooks/useWeather'
 import {
     Wallet,
     TrendingUp,
@@ -31,7 +36,8 @@ export default function DashboardPage() {
 }
 
 function DashboardContent() {
-    const { user } = useAuth()
+    const { user, userData } = useAuth()
+    const { weather, loading: weatherLoading } = useWeather()
     const { stats } = useTransactions()
     const { activeAccounts } = useAccounts()
 
@@ -48,30 +54,48 @@ function DashboardContent() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-            {/* Hero Header */}
-            <div className="relative overflow-hidden bg-gradient-to-r from-teal-600 to-cyan-600 dark:from-teal-700 dark:to-cyan-700 mb-8">
-                <div className="absolute inset-0 opacity-10">
-                    <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full -ml-48 -mt-48" />
-                    <div className="absolute bottom-0 right-0 w-72 h-72 bg-white rounded-full -mr-36 -mb-36" />
-                </div>
+            {/* Hero Header com Clima */}
+            <div className="relative overflow-hidden h-32 mb-8">
+                {/* Animação de clima como background */}
+                <WeatherAnimation
+                    condition={weather?.condition || 'clear'}
+                    isDay={weather?.isDay ?? true}
+                />
 
-                <div className="relative max-w-7xl mx-auto px-6 py-8">
-                    <div className="flex items-center justify-between">
+                {/* Conteúdo do header */}
+                <div className="relative max-w-7xl mx-auto px-6 py-6 z-10 h-full">
+                    <div className="flex items-center justify-between h-full">
+                        {/* Título e Saudação */}
                         <div>
-                            <h1 className="text-3xl font-black text-white mb-1 tracking-tight">
+                            <h1 className="text-3xl font-black text-white mb-1 tracking-tight drop-shadow-lg">
                                 Visão Geral
                             </h1>
-                            <p className="text-teal-100 text-sm font-medium">
-                                Bem-vindo de volta, {user?.displayName?.split(' ')[0] || 'Usuário'}
+                            <p className="text-white/90 text-sm font-medium drop-shadow">
+                                Bem-vindo de volta, {userData?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuário'}
                             </p>
                         </div>
-                        <div className="hidden md:flex items-center gap-3 bg-white/20 backdrop-blur-sm px-4 py-2.5 rounded-xl">
-                            <div className="text-right">
-                                <p className="text-teal-100 text-xs font-semibold uppercase tracking-wider">Hoje</p>
+
+                        {/* Direita - Data e Clima lado a lado */}
+                        <div className="flex items-center gap-3 bg-black/20 backdrop-blur-md px-4 py-3 rounded-xl border border-white/20">
+                            <div className="text-center">
+                                <p className="text-white/80 text-xs font-semibold uppercase tracking-wider">Hoje</p>
                                 <p className="text-white text-sm font-bold">
                                     {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                                 </p>
                             </div>
+                            {!weatherLoading && weather && (
+                                <div className="text-center border-l border-white/30 pl-3 hidden md:block">
+                                    <p className="text-white/80 text-xs font-semibold uppercase tracking-wider">
+                                        Clima
+                                    </p>
+                                    <p className="text-white text-xl font-bold">
+                                        {weather.temp}°C
+                                    </p>
+                                    <p className="text-white/70 text-xs capitalize">
+                                        {weather.description}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -120,6 +144,21 @@ function DashboardContent() {
 
                 {/* Segunda linha - Insights Unificado */}
                 <QuickInsightsWidget />
+
+                {/* Retrospectiva e Insights lado a lado */}
+                <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <MonthlyRetrospective />
+                    <SmartInsightsPanel />
+                </div>
+
+                {/* Gráficos */}
+                <div className="mt-6">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <div className="w-2 h-8 bg-gradient-to-b from-purple-500 to-pink-600 rounded-full" />
+                        Visualizações
+                    </h2>
+                    <DashboardCharts />
+                </div>
             </div>
         </div>
     )

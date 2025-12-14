@@ -146,4 +146,7 @@ export interface Goal {
     updatedAt: number
     completedAt?: number
     status: GoalStatus
+    isEmergencyFund?: boolean  // Flag para identificar reserva de emergência
+    bankName?: string          // Nome do banco onde guarda a reserva
+    accountInfo?: string       // Info da conta (opcional)
 }

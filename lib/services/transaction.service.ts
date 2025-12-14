@@ -214,6 +214,29 @@ export const transactionService = {
         const paidStatusChanged = data.isPaid !== undefined && data.isPaid !== originalTransaction.isPaid
         const accountChanged = data.accountId !== undefined && data.accountId !== originalTransaction.accountId
 
+        // PARCELAS SEM CARTÃO: debitar quando marcar como paga
+        // Verifica se não tem cartão (undefined OU string vazia)
+        const hasNoCard = !originalTransaction.cardId || originalTransaction.cardId === ''
+
+        if (originalTransaction.expenseType === 'installment' && hasNoCard && paidStatusChanged && originalTransaction.accountId) {
+            try {
+                if (data.isPaid) {
+                    // Marcou como pago: debitar da conta
+                    console.log('[Transaction Service] Debitando parcela da conta:', {
+                        accountId: originalTransaction.accountId,
+                        amount: originalTransaction.amount
+                    })
+                    await accountService.adjustBalance(userId, originalTransaction.accountId, originalTransaction.amount, 'subtract')
+                } else {
+                    // Desmarcou como pago: devolver para conta
+                    console.log('[Transaction Service] Devolvendo parcela para conta')
+                    await accountService.adjustBalance(userId, originalTransaction.accountId, originalTransaction.amount, 'add')
+                }
+            } catch (error) {
+                console.warn('Não foi possível ajustar saldo da conta:', error)
+            }
+        }
+
         // Para receitas e despesas à vista/fixas pagas
         if (originalTransaction.expenseType !== 'installment') {
             try {
@@ -354,34 +377,19 @@ export const transactionService = {
         }).sort((a, b) => (a.dueDate || 0) - (b.dueDate || 0))
     },
 
-    // Buscar transações fixas (receitas E despesas) pendentes de confirmação
+    // Buscar transações fixas (receitas E despesas) + parcelas sem cartão pendentes de confirmação
     async getPendingConfirmations(userId: string): Promise<{ expenses: Transaction[], incomes: Transaction[] }> {
-        const q = query(
-            ref(db, `users/${userId}/transactions`),
-            orderByChild('isRecurring'),
-            startAt(true),
-            endAt(true)
-        )
+        // Buscar todas as transações
+        const allSnapshot = await get(ref(db, `users/${userId}/transactions`))
+        if (!allSnapshot.exists()) return { expenses: [], incomes: [] }
 
-        const snapshot = await get(q)
-        if (!snapshot.exists()) return { expenses: [], incomes: [] }
-
-        const data = snapshot.val()
+        const data = allSnapshot.val()
         const transactions: Transaction[] = Object.keys(data).map(key => ({
             id: key,
             ...data[key]
         }))
 
-        console.log('[getPendingConfirmations] Total de transações recorrentes:', transactions.length)
-        console.table(transactions.map(t => ({
-            desc: t.description,
-            amount: t.amount,
-            type: t.type,
-            expenseType: t.expenseType,
-            isRecurring: t.isRecurring,
-            isPaid: t.isPaid,
-            dueDate: t.dueDate ? new Date(t.dueDate).toISOString() : 'SEM DUEDATE'
-        })))
+        console.log('[getPendingConfirmations] Total de transações:', transactions.length)
 
         const today = new Date()
         today.setHours(0, 0, 0, 0)
@@ -392,23 +400,37 @@ export const transactionService = {
         console.log('[getPendingConfirmations] Hoje:', today.toISOString())
         console.log('[getPendingConfirmations] 5 dias no futuro:', fiveDaysFromNow.toISOString())
 
-        // Filtrar despesas fixas não pagas
+        // Filtrar despesas fixas não pagas OU parcelas sem cartão não pagas
         const expenses = transactions.filter(t => {
-            if (t.type !== 'expense' || t.expenseType !== 'fixed' || t.isPaid) return false
-            if (!t.dueDate) return false
+            // Despesas fixas recorrentes
+            if (t.type === 'expense' && t.expenseType === 'fixed' && !t.isPaid && t.dueDate) {
+                const dueDate = new Date(t.dueDate)
+                return dueDate <= fiveDaysFromNow
+            }
 
-            const dueDate = new Date(t.dueDate)
-            const shouldShow = dueDate <= fiveDaysFromNow
+            // Parcelas SEM cartão não pagas
+            const hasNoCard = !t.cardId || t.cardId === ''
+            if (t.type === 'expense' && t.expenseType === 'installment' && hasNoCard && !t.isPaid && t.date) {
+                const dueDate = new Date(t.date) // Para parcelas, a data É o vencimento
+                const shouldShow = dueDate <= fiveDaysFromNow
 
-            console.log('[getPendingConfirmations] Despesa:', {
-                desc: t.description,
-                dueDate: dueDate.toISOString(),
-                isPaid: t.isPaid,
-                shouldShow
-            })
+                console.log('[getPendingConfirmations] Parcela:', {
+                    desc: t.description,
+                    installment: `${t.currentInstallment}/${t.installments}`,
+                    dueDate: dueDate.toISOString(),
+                    isPaid: t.isPaid,
+                    shouldShow
+                })
 
-            return shouldShow
-        }).sort((a, b) => (a.dueDate || 0) - (b.dueDate || 0))
+                return shouldShow
+            }
+
+            return false
+        }).sort((a, b) => {
+            const dateA = a.dueDate || a.date || 0
+            const dateB = b.dueDate || b.date || 0
+            return dateA - dateB
+        })
 
         // Filtrar receitas fixas não recebidas
         const incomes = transactions.filter(t => {

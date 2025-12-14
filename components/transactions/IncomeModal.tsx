@@ -10,7 +10,7 @@ import { useAccounts } from '@/contexts/AccountContext'
 import { useFamilyMembers } from '@/contexts/FamilyContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { CreateCategoryModal } from '@/components/categories/CreateCategoryModal'
-import { Plus, Calendar as CalendarIcon } from 'lucide-react'
+import { Plus, Calendar as CalendarIcon, Clock } from 'lucide-react'
 import { Transaction } from '@/types'
 import { useTransactions } from '@/contexts/TransactionContext'
 import { useEffect } from 'react'
@@ -231,7 +231,7 @@ export function IncomeModal({ isOpen, onClose, transactionToEdit }: IncomeModalP
                                                             setCategoryId(e.target.value)
                                                         }
                                                     }}
-                                                    className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                                                    className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-green-500 focus:ring-4 focus:ring-green-500/20 select-income bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 font-medium rounded-xl outline-none transition-all"
                                                     required
                                                 >
                                                     <option value="">Selecione...</option>
@@ -248,7 +248,7 @@ export function IncomeModal({ isOpen, onClose, transactionToEdit }: IncomeModalP
                                                 <select
                                                     value={accountId}
                                                     onChange={(e) => setAccountId(e.target.value)}
-                                                    className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                                                    className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-green-500 focus:ring-4 focus:ring-green-500/20 select-income bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 font-medium rounded-xl outline-none transition-all"
                                                     required
                                                 >
                                                     <option value="">Selecione...</option>
@@ -267,7 +267,7 @@ export function IncomeModal({ isOpen, onClose, transactionToEdit }: IncomeModalP
                                             <select
                                                 value={assignedTo}
                                                 onChange={(e) => setAssignedTo(e.target.value)}
-                                                className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                                                className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-green-500 focus:ring-4 focus:ring-green-500/20 select-income bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 font-medium rounded-xl outline-none transition-all"
                                             >
                                                 <option value={user?.uid}>{userData?.name || 'Você'}</option>
                                                 <option value="family">Família (Todos)</option>
@@ -282,15 +282,16 @@ export function IncomeModal({ isOpen, onClose, transactionToEdit }: IncomeModalP
                                         </div>
 
                                         {/* Recorrência */}
-                                        <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-200 dark:border-slate-600">
+                                        <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800">
                                             <input
                                                 type="checkbox"
                                                 id="isRecurring"
                                                 checked={isRecurring}
                                                 onChange={(e) => setIsRecurring(e.target.checked)}
-                                                className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500 border-gray-300"
+                                                className="w-5 h-5 rounded checkbox-income border-gray-300 cursor-pointer"
                                             />
-                                            <label htmlFor="isRecurring" className="text-sm text-gray-700 dark:text-gray-300 select-none cursor-pointer">
+                                            <label htmlFor="isRecurring" className="text-sm font-medium text-gray-700 dark:text-gray-300 select-none cursor-pointer flex items-center gap-2">
+                                                <Clock className="w-4 h-4 text-green-600 dark:text-green-400" />
                                                 Receita Fixa (Mensal)
                                             </label>
                                         </div>
