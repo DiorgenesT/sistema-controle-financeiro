@@ -149,7 +149,10 @@ export const transactionService = {
                 await accountService.adjustBalance(userId, transaction.accountId, transaction.amount, 'subtract')
                 await accountService.adjustBalance(userId, transaction.toAccountId, transaction.amount, 'add')
             } else if (transaction.accountId && transaction.type === 'income') {
-                await accountService.adjustBalance(userId, transaction.accountId, transaction.amount, 'add')
+                // Receitas só mexem no saldo quando marcadas como recebidas (isPaid)
+                if (transaction.isPaid) {
+                    await accountService.adjustBalance(userId, transaction.accountId, transaction.amount, 'add')
+                }
             } else if (transaction.accountId && transaction.type === 'expense' && transaction.expenseType !== 'installment') {
                 // Despesas fixas e à vista mexem no saldo quando marcadas como pagas
                 if (transaction.isPaid) {
