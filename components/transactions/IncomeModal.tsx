@@ -116,14 +116,6 @@ export function IncomeModal({ isOpen, onClose, transactionToEdit }: IncomeModalP
                     console.log('[IncomeModal] Criando próxima recorrência:', nextTransactionData)
                     await createTransaction(nextTransactionData)
                 }
-
-                // Recalcular saldos de TODAS as contas baseado nas transações
-                if (user) {
-                    const { accountService } = await import('@/lib/services/account.service')
-                    await accountService.recalculateAllBalances(user.uid)
-                    await refreshAccounts() // Recarregar contas após recalcular
-                    console.log('[IncomeModal] Saldos recalculados e atualizados')
-                }
             }
 
             onClose()
