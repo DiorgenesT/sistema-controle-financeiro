@@ -225,17 +225,29 @@ export function WeatherAnimation({ condition, isDay }: WeatherAnimationProps) {
             {/* CHUVA */}
             {(condition === 'rain' || condition === 'thunderstorm') && (
                 <div className="absolute inset-0">
-                    {[...Array(50)].map((_, i) => (
-                        <div
-                            key={i}
-                            className="absolute w-0.5 h-4 md:h-6 bg-blue-200 opacity-60"
-                            style={{
-                                left: `${Math.random() * 100}%`,
-                                animation: `rain-fall ${0.3 + Math.random() * 0.5}s linear infinite`,
-                                animationDelay: `${Math.random() * 2}s`
-                            }}
-                        />
-                    ))}
+                    {[...Array(80)].map((_, i) => {
+                        const width = Math.random() * 0.7 + 0.8 // 0.8-1.5px
+                        const opacity = Math.random() * 0.3 + 0.4 // 0.4-0.7
+                        const height = Math.random() * 12 + 8 // 8-20px
+                        const speed = 0.25 + Math.random() * 0.35 // 0.25-0.6s
+
+                        return (
+                            <div
+                                key={i}
+                                className="absolute bg-gradient-to-b from-blue-100 to-transparent"
+                                style={{
+                                    left: `${Math.random() * 100}%`,
+                                    width: `${width}px`,
+                                    height: `${height}px`,
+                                    opacity,
+                                    filter: 'blur(0.5px)',
+                                    borderRadius: '50%',
+                                    animation: `rain-fall ${speed}s linear infinite`,
+                                    animationDelay: `${Math.random() * 2}s`
+                                }}
+                            />
+                        )
+                    })}
                 </div>
             )}
 

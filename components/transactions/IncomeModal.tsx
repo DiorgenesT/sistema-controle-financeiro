@@ -70,6 +70,9 @@ export function IncomeModal({ isOpen, onClose, transactionToEdit }: IncomeModalP
         e.preventDefault()
         if (!user || !amount || !categoryId || !accountId) return
 
+        // Proteção contra duplo submit
+        if (loading) return
+
         setLoading(true)
         try {
             const transactionData = {
@@ -91,7 +94,6 @@ export function IncomeModal({ isOpen, onClose, transactionToEdit }: IncomeModalP
             if (transactionToEdit) {
                 await updateTransaction(transactionToEdit.id, transactionData)
             } else {
-                console.log('[IncomeModal] Criando receita principal:', transactionData)
                 await createTransaction(transactionData)
 
                 // Se for receita fixa, criar próxima recorrência automaticamente
@@ -113,7 +115,6 @@ export function IncomeModal({ isOpen, onClose, transactionToEdit }: IncomeModalP
                         isPaid: false, // Próxima recorrência começa como não recebida
                     }
 
-                    console.log('[IncomeModal] Criando próxima recorrência:', nextTransactionData)
                     await createTransaction(nextTransactionData)
                 }
             }
