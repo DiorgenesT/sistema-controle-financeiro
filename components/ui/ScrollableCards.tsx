@@ -5,9 +5,10 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface ScrollableCardsProps {
     children: ReactNode
+    className?: string
 }
 
-export function ScrollableCards({ children }: ScrollableCardsProps) {
+export function ScrollableCards({ children, className = '' }: ScrollableCardsProps) {
     const scrollRef = useRef<HTMLDivElement>(null)
     const [canScrollLeft, setCanScrollLeft] = useState(false)
     const [canScrollRight, setCanScrollRight] = useState(false)
@@ -62,7 +63,7 @@ export function ScrollableCards({ children }: ScrollableCardsProps) {
             <div
                 ref={scrollRef}
                 onScroll={checkScroll}
-                className="flex gap-5 overflow-x-auto pb-4 scrollbar-none"
+                className={`flex gap-5 overflow-x-auto pb-4 px-2 scrollbar-none ${className}`}
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
                 {children}

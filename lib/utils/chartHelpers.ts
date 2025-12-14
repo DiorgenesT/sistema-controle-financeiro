@@ -124,7 +124,7 @@ export function calculateProjection(
     return { current, next }
 }
 
-// Agrupar despesas por categoria
+// Agrupar despesas por categoria (apenas do mês atual)
 export function groupByCategory(
     transactions: Transaction[],
     categories: { id: string; name: string; icon: string; color?: string }[]
@@ -132,8 +132,17 @@ export function groupByCategory(
     const categoryMap = new Map<string, number>()
     let total = 0
 
+    // Obter mês e ano atuais
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+
     transactions
-        .filter(tx => tx.type === 'expense' && tx.isPaid)
+        .filter(tx => {
+            const txDate = new Date(tx.date)
+            const isCurrentMonth = txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear
+            return tx.type === 'expense' && tx.isPaid && isCurrentMonth
+        })
         .forEach(tx => {
             const current = categoryMap.get(tx.categoryId) || 0
             categoryMap.set(tx.categoryId, current + tx.amount)

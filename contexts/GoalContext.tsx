@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { Goal } from '@/types'
 import { goalService } from '@/lib/services/goal.service'
+import { accountService } from '@/lib/services/account.service'
 import { useAuth } from './AuthContext'
 
 interface GoalContextType {
@@ -13,7 +14,7 @@ interface GoalContextType {
     createGoal: (goalData: Omit<Goal, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'currentAmount' | 'contributions' | 'status'>) => Promise<void>
     updateGoal: (goalId: string, updates: Partial<Goal>) => Promise<void>
     deleteGoal: (goalId: string) => Promise<void>
-    addContribution: (goalId: string, amount: number, note?: string) => Promise<void>
+    addContribution: (goalId: string, accountId: string, amount: number, note?: string) => Promise<void>
     removeContribution: (goalId: string, contributionId: string) => Promise<void>
     cancelGoal: (goalId: string) => Promise<void>
     reactivateGoal: (goalId: string) => Promise<void>
@@ -66,8 +67,15 @@ export function GoalProvider({ children }: { children: ReactNode }) {
         await loadGoals()
     }
 
-    const addContribution = async (goalId: string, amount: number, note?: string) => {
-        await goalService.addContribution(goalId, amount, note)
+    const addContribution = async (goalId: string, accountId: string, amount: number, note?: string) => {
+        if (!user) throw new Error('Usuário não autenticado')
+
+        // Usar accountService.transferToGoal que já cuida de tudo:
+        // - Valida saldo
+        // - Cria transação
+        // - Debita da conta (via listener)
+        // - Credita na meta
+        await accountService.transferToGoal(user.uid, accountId, goalId, amount)
         await loadGoals()
     }
 

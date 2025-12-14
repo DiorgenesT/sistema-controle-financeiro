@@ -86,6 +86,7 @@ export const accountService = {
         if (!goal) throw new Error('Meta não encontrada')
 
         // 1. Criar transação de DESPESA (isso afeta orçamento diário)
+        // A transação com isPaid:true já debita automaticamente via transaction.service
         const transactionRef = push(ref(db, `users/${userId}/transactions`))
         const transaction = {
             id: transactionRef.key,
@@ -95,17 +96,18 @@ export const accountService = {
             categoryId: 'reserva-emergencia', // Categoria especial
             accountId,
             date: Date.now(),
-            isPaid: true,
+            isPaid: true, // Débito automático via transaction.service
             notes: 'Contribuição para reserva de emergência',
             createdAt: Date.now(),
             updatedAt: Date.now()
         }
         await set(transactionRef, transaction)
 
-        // 2. Debitar da conta
-        await this.adjustBalance(userId, accountId, amount, 'subtract')
+        // REMOVIDO: Débito manual da conta (causava dupla contabilização)
+        // await this.adjustBalance(userId, accountId, amount, 'subtract')
+        // A transação criada acima com isPaid:true já debita automaticamente
 
-        // 3. Adicionar à meta (contribuição)
+        // 2. Adicionar à meta (contribuição)
         const newCurrentAmount = (goal.currentAmount || 0) + amount
         const contribution = {
             id: Date.now().toString(),
@@ -138,6 +140,7 @@ export const accountService = {
         }
 
         // 1. Criar transação de RECEITA (dinheiro voltando)
+        // A transação com isPaid:true já credita automaticamente via transaction.service
         const transactionRef = push(ref(db, `users/${userId}/transactions`))
         const transaction = {
             id: transactionRef.key,
@@ -147,17 +150,18 @@ export const accountService = {
             categoryId: 'saque-reserva', // Categoria especial
             accountId,
             date: Date.now(),
-            isPaid: true,
+            isPaid: true, // Crédito automático via transaction.service
             notes: 'Saque da reserva de emergência',
             createdAt: Date.now(),
             updatedAt: Date.now()
         }
         await set(transactionRef, transaction)
 
-        // 2. Creditar na conta
-        await this.adjustBalance(userId, accountId, amount, 'add')
+        // REMOVIDO: Crédito manual na conta (causava dupla contabilização)
+        // await this.adjustBalance(userId, accountId, amount, 'add')
+        // A transação criada acima com isPaid:true já credita automaticamente
 
-        // 3. Subtrair da meta
+        // 2. Subtrair da meta
         const newCurrentAmount = (goal.currentAmount || 0) - amount
         const withdrawal = {
             id: Date.now().toString(),
@@ -179,12 +183,12 @@ export const accountService = {
         if (!account) throw new Error('Conta não encontrada')
 
         // Buscar TODAS as transações dessa conta
-        const transactionsRef = ref(db, `users/${userId}/transactions`)
+        const transactionsRef = ref(db, `users / ${userId} / transactions`)
         const snapshot = await get(transactionsRef)
 
         if (!snapshot.exists()) {
             // Sem transações = saldo inicial
-            await update(ref(db, `users/${userId}/accounts/${accountId}`), {
+            await update(ref(db, `users / ${userId} / accounts / ${accountId}`), {
                 currentBalance: account.initialBalance
             })
             return
@@ -218,7 +222,7 @@ export const accountService = {
         console.log('[recalculateBalance] Saldo calculado:', calculatedBalance)
 
         // Atualizar no Firebase
-        await update(ref(db, `users/${userId}/accounts/${accountId}`), {
+        await update(ref(db, `users / ${userId} / accounts / ${accountId}`), {
             currentBalance: calculatedBalance
         })
     },
@@ -236,6 +240,6 @@ export const accountService = {
 
     // Excluir conta
     async delete(userId: string, accountId: string): Promise<void> {
-        await remove(ref(db, `users/${userId}/accounts/${accountId}`))
+        await remove(ref(db, `users / ${userId} / accounts / ${accountId}`))
     },
 }

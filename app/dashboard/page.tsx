@@ -15,6 +15,7 @@ import { IncomeExpenseCarousel } from '@/components/dashboard/IncomeExpenseCarou
 import { DashboardCharts } from '@/components/charts/DashboardCharts'
 import { MonthlyRetrospective } from '@/components/dashboard/MonthlyRetrospective'
 import { SmartInsightsPanel } from '@/components/dashboard/SmartInsightsPanel'
+import { SpendingByUserCard } from '@/components/dashboard/SpendingByUserCard'
 import { WeatherAnimation } from '@/components/weather/WeatherAnimation'
 import { useWeather } from '@/hooks/useWeather'
 import {
@@ -145,9 +146,10 @@ function DashboardContent() {
                 {/* Segunda linha - Insights Unificado */}
                 <QuickInsightsWidget />
 
-                {/* Retrospectiva e Insights lado a lado */}
-                <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Grid de 3 colunas - Retrospectiva, Gastos por Usuário (meio), Insights */}
+                <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <MonthlyRetrospective />
+                    <SpendingByUserCard />
                     <SmartInsightsPanel />
                 </div>
 
