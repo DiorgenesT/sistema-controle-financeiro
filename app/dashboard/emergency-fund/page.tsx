@@ -14,6 +14,9 @@ import { MonthsCoverage } from '@/components/emergency/MonthsCoverage'
 import { ContributionHistory } from '@/components/emergency/ContributionHistory'
 import { AddContributionModal } from '@/components/emergency/AddContributionModal'
 import { WithdrawFromReserveModal } from '@/components/emergency/WithdrawFromReserveModal'
+import { BankSetupModal } from '@/components/goals/BankSetupModal'
+import { ref as dbRef, update } from 'firebase/database'
+import { db } from '@/lib/firebase/config'
 import {
     Shield,
     DollarSign,
@@ -24,7 +27,8 @@ import {
     ArrowLeft,
     AlertTriangle,
     CheckCircle2,
-    ArrowDownLeft
+    ArrowDownLeft,
+    Building2
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
@@ -46,6 +50,7 @@ function EmergencyFundContent() {
     const [loading, setLoading] = useState(true)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false)
+    const [showBankSetup, setShowBankSetup] = useState(false)
     const [goal, setGoal] = useState<any>(null)
 
     useEffect(() => {
@@ -55,10 +60,10 @@ function EmergencyFundContent() {
     // Buscar contributions da meta se existir
     useEffect(() => {
         const fetchGoal = async () => {
-            if (!user || !status?.goalId) return
+            if (!user || !status?.goalInfo) return
 
             try {
-                const goalData = await goalService.getById(status.goalId)
+                const goalData = await goalService.getById(status.goalInfo.id)
                 setGoal(goalData)
             } catch (error) {
                 console.error('Erro ao carregar meta:', error)
@@ -83,8 +88,16 @@ function EmergencyFundContent() {
                 // Recarregar após criar
                 const newStatus = await emergencyFundService.getStatus(user.uid)
                 setStatus(newStatus)
+
+                // Mostrar modal de banco
+                setTimeout(() => setShowBankSetup(true), 500)
             } else {
                 setStatus(fundStatus)
+
+                // Se tem meta mas não tem banco, mostrar modal
+                if (fundStatus.goalInfo && !fundStatus.goalInfo.bankName) {
+                    setTimeout(() => setShowBankSetup(true), 500)
+                }
             }
         } catch (error) {
             console.error('Erro ao carregar dados:', error)
@@ -93,12 +106,28 @@ function EmergencyFundContent() {
         }
     }
 
+    const handleSaveBank = async (bankName: string) => {
+        if (!user || !status?.goalInfo) return
+
+        try {
+            await update(dbRef(db, `users/${user.uid}/goals/${status.goalInfo.id}`), {
+                bankName,
+                isEmergencyFund: true
+            })
+
+            // Recarregar dados
+            await loadData()
+        } catch (error) {
+            console.error('Erro ao salvar banco:', error)
+        }
+    }
+
     const handleAddContribution = async (accountId: string, amount: number) => {
-        if (!user || !status?.goalId) return
+        if (!user || !status?.goalInfo) return
 
         try {
             // Transferir de conta para meta
-            await accountService.transferToGoal(user.uid, accountId, status.goalId, amount)
+            await accountService.transferToGoal(user.uid, accountId, status.goalInfo.id, amount)
 
             // Recarregar dados da página
             await loadData()
@@ -112,11 +141,11 @@ function EmergencyFundContent() {
     }
 
     const handleWithdraw = async (accountId: string, amount: number) => {
-        if (!user || !status?.goalId) return
+        if (!user || !status?.goalInfo) return
 
         try {
             // Sacar da reserva para conta
-            await accountService.withdrawFromGoal(user.uid, accountId, status.goalId, amount)
+            await accountService.withdrawFromGoal(user.uid, accountId, status.goalInfo.id, amount)
 
             // Recarregar dados da página
             await loadData()
@@ -161,22 +190,33 @@ function EmergencyFundContent() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
             <div className="container mx-auto px-4 py-8 space-y-8">
-                {/* Header com back button */}
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => router.push('/dashboard')}
-                        className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                    >
-                        <ArrowLeft className="w-5 h-5" />
-                    </button>
-                    <div>
-                        <h1 className="text-3xl font-black text-gray-900 dark:text-white">
-                            Reserva de Emergência
-                        </h1>
-                        <p className="text-gray-600 dark:text-gray-400 mt-1">
-                            Sua rede de segurança financeira
-                        </p>
+                {/* Header com back button e ação */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                        </button>
+                        <div>
+                            <h1 className="text-3xl font-black text-gray-900 dark:text-white">
+                                Reserva de Emergência
+                            </h1>
+                            <p className="text-gray-600 dark:text-gray-400 mt-1">
+                                Sua rede de segurança financeira
+                            </p>
+                        </div>
                     </div>
+
+                    {/* Botão de Contribuição no Topo */}
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all flex items-center gap-2"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Adicionar Contribuição
+                    </button>
                 </div>
 
                 {/* Cards de Status */}
@@ -240,96 +280,77 @@ function EmergencyFundContent() {
                         </div>
                     </Card>
 
-                    {/* Sugestões */}
-                    <Card className="p-4">
-                        <h2 className="text-base font-bold text-gray-900 dark:text-white mb-2">
-                            Sugestões Inteligentes
-                        </h2>
-                        <div className="space-y-2">
-                            <div className="flex items-start gap-2 p-3 bg-teal-50 dark:bg-teal-900/20 rounded-lg">
-                                <DollarSign className="w-4 h-4 text-teal-600 dark:text-teal-400 mt-0.5 flex-shrink-0" />
-                                <div>
-                                    <p className="font-semibold text-gray-900 dark:text-white text-sm">
-                                        Contribuição Sugerida
-                                    </p>
-                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                                        {formatCurrency(status.suggestedContribution)}/mês
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                                <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                                <div>
-                                    <p className="font-semibold text-gray-900 dark:text-white text-sm">
-                                        Tempo Estimado
-                                    </p>
-                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                                        {Math.ceil(status.daysToTarget / 30)} meses para atingir meta
-                                    </p>
-                                </div>
-                            </div>
-
-                            {status.monthsCovered >= 6 ? (
-                                <div className="flex items-start gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                                    <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
-                                    <div>
-                                        <p className="font-semibold text-green-900 dark:text-green-100 text-sm">
-                                            Meta Atingida! 🎉
-                                        </p>
-                                        <p className="text-xs text-green-700 dark:text-green-300 mt-0.5">
-                                            Você está protegido!
-                                        </p>
+                    {/* Banco Configurado */}
+                    {status.goalInfo && (
+                        <Card className="p-4">
+                            <h2 className="text-base font-bold text-gray-900 dark:text-white mb-2">
+                                Informações do Banco
+                            </h2>
+                            <div className="space-y-3 py-2">
+                                {status.goalInfo.bankName ? (
+                                    <div className="flex items-center gap-3 p-3 bg-teal-50 dark:bg-teal-900/20 rounded-lg">
+                                        <Building2 className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                                        <div>
+                                            <p className="font-semibold text-gray-900 dark:text-white text-sm">
+                                                {status.goalInfo.bankName}
+                                            </p>
+                                            {status.goalInfo.accountInfo && (
+                                                <p className="text-xs text-gray-600 dark:text-gray-400">
+                                                    {status.goalInfo.accountInfo}
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="flex items-start gap-2 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                                    <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
-                                    <div>
-                                        <p className="font-semibold text-gray-900 dark:text-white text-sm">
-                                            Continue Contribuindo
-                                        </p>
-                                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                                            Faltam {(6 - status.monthsCovered).toFixed(1)} meses de proteção
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </Card>
+                                ) : (
+                                    <button
+                                        onClick={() => setShowBankSetup(true)}
+                                        className="w-full px-4 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-all"
+                                    >
+                                        <Building2 className="w-4 h-4" />
+                                        Configurar Banco
+                                    </button>
+                                )}
+                            </div>
+                        </Card>
+                    )}
                 </div>
+
+                {/* Mensagem de Proteção */}
+                {status.monthsCovered >= 6 ? (
+                    <p className="text-xs text-green-700 dark:text-green-300 mt-0.5">
+                        Você está protegido!
+                    </p>
+                ) : (
+                    <div className="flex items-start gap-2 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                        <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                            <p className="font-semibold text-gray-900 dark:text-white text-sm">
+                                Continue Contribuindo
+                            </p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                                Faltam {(6 - status.monthsCovered).toFixed(1)} meses de proteção
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Meses Cobertos */}
                 <Card className="p-8">
                     <MonthsCoverage monthsCovered={status.monthsCovered} />
                 </Card>
 
-                {/* Histórico */}
-                <ContributionHistory contributions={contributions} />
-
-                {/* Botões de Ação */}
-                <div className="flex flex-col sm:flex-row justify-center gap-4">
-                    <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="px-8 py-4 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-3"
-                    >
-                        <Plus className="w-6 h-6" />
-                        Adicionar Contribuição
-                    </button>
-
-                    {status.currentAmount > 0 && (
-                        <button
-                            onClick={() => setIsWithdrawModalOpen(true)}
-                            className="px-8 py-4 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-3"
-                        >
-                            <ArrowDownLeft className="w-6 h-6" />
-                            Sacar da Reserva
-                        </button>
-                    )}
-                </div>
+                {/* Histórico de Contribuições */}
+                {contributions.length > 0 && (
+                    <Card className="p-6">
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                            Histórico de Contribuições
+                        </h2>
+                        <ContributionHistory contributions={contributions} />
+                    </Card>
+                )}
             </div>
 
-            {/* Modal de Adicionar */}
+            {/* Modais */}
             <AddContributionModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
@@ -339,7 +360,6 @@ function EmergencyFundContent() {
                 targetAmount={status.targetAmount}
             />
 
-            {/* Modal de Sacar */}
             <WithdrawFromReserveModal
                 isOpen={isWithdrawModalOpen}
                 onClose={() => setIsWithdrawModalOpen(false)}
@@ -348,6 +368,13 @@ function EmergencyFundContent() {
                 currentAmount={status.currentAmount}
                 monthsCovered={status.monthsCovered}
             />
+
+            <BankSetupModal
+                isOpen={showBankSetup}
+                onClose={() => setShowBankSetup(false)}
+                onSave={handleSaveBank}
+            />
         </div>
     )
 }
+

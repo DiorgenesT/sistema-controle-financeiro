@@ -19,8 +19,246 @@
   }
 }
 
+/* Custom Scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+  height: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgb(209, 213, 219);
+  border-radius: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgb(156, 163, 175);
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgb(75, 85, 99);
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgb(107, 114, 128);
+}
+
+/* Hide scrollbar completely */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+/* Remove setas dos inputs de número */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Dropdown estilizado para modais de receita (verde) */
+.select-income {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2316a34a'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.25rem;
+  padding-right: 2.5rem;
+}
+
+.dark .select-income {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2322c55e'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+}
+
+/* Dropdown estilizado para modais de despesa (vermelho) */
+.select-expense {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23dc2626'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.25rem;
+  padding-right: 2.5rem;
+}
+
+.dark .select-expense {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23f87171'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+}
+
+/* Checkboxes e radios verdes (receita) */
+.checkbox-income,
+.radio-income {
+  accent-color: #16a34a;
+}
+
+.dark .checkbox-income,
+.dark .radio-income {
+  accent-color: #22c55e;
+}
+
+/* Checkboxes e radios vermelhos (despesa) */
+.checkbox-expense,
+.radio-expense {
+  accent-color: #dc2626;
+}
+
+.dark .checkbox-expense,
+.dark .radio-expense {
+  accent-color: #f87171;
+}
+
+/* Labels com cores para receita */
+.label-income {
+  color: #16a34a;
+}
+
+.dark .label-income {
+  color: #22c55e;
+}
+
+/* Labels com cores para despesa */
+.label-expense {
+  color: #dc2626;
+}
+
+.dark .label-expense {
+  color: #f87171;
+}
+
+/* Animação fade-in para slides */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* ========================================
+   ANIMAÇÕES DE CLIMA
+   ======================================== */
+
+/* SOL */
+@keyframes sun-rays {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.1); }
+}
+
+@keyframes sun-glow {
+  0%, 100% { 
+    box-shadow: 0 0 20px 10px rgba(255, 200, 0, 0.6),
+                0 0 40px 20px rgba(255, 150, 0, 0.4);
+  }
+  50% { 
+    box-shadow: 0 0 30px 15px rgba(255, 200, 0, 0.8),
+                0 0 60px 30px rgba(255, 150, 0, 0.6);
+  }
+}
+
+/* LUA */
+@keyframes moon-glow {
+  0%, 100% { 
+    box-shadow: 0 0 20px 5px rgba(200, 220, 255, 0.6);
+  }
+  50% { 
+    box-shadow: 0 0 30px 10px rgba(200, 220, 255, 0.8);
+  }
+}
+
+/* ESTRELAS */
+@keyframes stars-twinkle {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* NUVENS */
+@keyframes clouds-move-1 {
+  0% { transform: translateX(-150%); }
+  100% { transform: translateX(110vw); }
+}
+
+@keyframes clouds-move-2 {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(110vw); }
+}
+
+@keyframes clouds-move-3 {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(110vw); }
+}
+
+/* CHUVA */
+@keyframes rain-fall {
+  0% { 
+    transform: translateY(-100%) rotate(10deg);
+    opacity: 0;
+  }
+  10% { opacity: 1; }
+  100% { 
+    transform: translateY(100vh) rotate(10deg);
+    opacity: 0.3;
+  }
+}
+
+/* RAIOS */
+@keyframes lightning-flash {
+  0%, 10%, 20%, 100% { opacity: 0; }
+  5% { opacity: 1; }
+  15% { opacity: 0.8; }
+}
+
+@keyframes lightning-bg {
+  0%, 96%, 100% { background-color: transparent; }
+  97%, 98% { background-color: rgba(255, 255, 255, 0.1); }
+}
+
+/* NEVE */
+@keyframes snow-fall {
+  0% { 
+    transform: translateY(-100%) rotate(0deg);
+    opacity: 1;
+  }
+  100% { 
+    transform: translateY(100vh) rotate(360deg);
+    opacity: 0.5;
+  }
+}
+
+@keyframes snow-sway {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(20px); }
+}
+
+/* NÉVOA */
+@keyframes mist-float {
+  0%, 100% { 
+    transform: translateX(-10%) translateY(0);
+    opacity: 0.3;
+  }
+  50% { 
+    transform: translateX(10%) translateY(-10px);
+    opacity: 0.5;
+  }
 }

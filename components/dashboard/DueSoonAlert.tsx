@@ -6,6 +6,8 @@ import { Transaction } from '@/types'
 import { AlertTriangle, Calendar, CheckCircle, Clock, TrendingUp, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Tabs, TabPanel } from '@/components/ui/Tabs'
+import { ScrollableCards } from '@/components/ui/ScrollableCards'
 import { useTransactions } from '@/contexts/TransactionContext'
 import { Dialog, Transition } from '@headlessui/react'
 
@@ -22,6 +24,7 @@ export function DueSoonAlert() {
     const [confirmedAmount, setConfirmedAmount] = useState('')
     const [updateFutureValues, setUpdateFutureValues] = useState(false)
     const [isProcessing, setIsProcessing] = useState(false)
+    const [activeTab, setActiveTab] = useState<'expenses' | 'incomes'>('expenses')
 
     const loadPending = async () => {
         if (!user) return
@@ -48,11 +51,22 @@ export function DueSoonAlert() {
     }, [user])
 
     const getSuggestedValue = (transaction: Transaction) => {
+        // Parcelas não têm valueHistory, usar amount diretamente
+        if (transaction.expenseType === 'installment') {
+            return transaction.amount
+        }
+
+        // Despesas fixas podem ter valueHistory
         const probableValue = transactionService.calculateProbableValue(transaction.valueHistory)
         return probableValue || transaction.amount
     }
 
     const getVariationBadge = (transaction: Transaction) => {
+        // Parcelas não têm variação
+        if (transaction.expenseType === 'installment') {
+            return null
+        }
+
         const suggestedValue = getSuggestedValue(transaction)
         const originalValue = transaction.amount
 
@@ -70,7 +84,8 @@ export function DueSoonAlert() {
     const handleOpenModal = (transaction: Transaction) => {
         setConfirmingTransaction(transaction)
         const suggestedValue = getSuggestedValue(transaction)
-        setConfirmedAmount(suggestedValue.toString())
+        // Arredondar para 2 casas decimais
+        setConfirmedAmount(suggestedValue.toFixed(2))
         setUpdateFutureValues(false)
     }
 
@@ -178,19 +193,21 @@ export function DueSoonAlert() {
                             <div className="w-1 h-4 bg-red-500 rounded-full" />
                             Despesas Pendentes
                         </h4>
-                        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4 mb-6">
+                        <ScrollableCards>
                             {pendingExpenses.map(expense => {
-                                const dueDate = new Date(expense.dueDate!)
+                                // Para parcelas, usar 'date'. Para fixas, usar 'dueDate'
+                                const dueDate = new Date(expense.dueDate || expense.date || Date.now())
+                                const suggestedValue = getSuggestedValue(expense)
+                                const variationBadge = getVariationBadge(expense)
+
                                 const today = new Date()
                                 today.setHours(0, 0, 0, 0)
 
-                                const isLate = dueDate < today
-                                const isToday = dueDate.getTime() === today.getTime()
                                 const diffTime = dueDate.getTime() - today.getTime()
                                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
-                                const suggestedValue = getSuggestedValue(expense)
-                                const variationBadge = getVariationBadge(expense)
+                                const isLate = diffDays < 0
+                                const isToday = diffDays === 0
 
                                 const cardTheme = isLate
                                     ? {
@@ -233,7 +250,7 @@ export function DueSoonAlert() {
                                 return (
                                     <div
                                         key={expense.id}
-                                        className={`group relative overflow-hidden rounded-xl bg-gradient-to-br ${cardTheme.bgGradient} border-2 ${cardTheme.border} backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-500 ${cardTheme.ring} ring-4 h-[140px]`}
+                                        className={`group relative overflow-hidden rounded-xl bg-gradient-to-br ${cardTheme.bgGradient} border-2 ${cardTheme.border} backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-500 ${cardTheme.ring} ring-4 h-[140px] min-w-[280px] flex-shrink-0`}
                                     >
                                         <div className={`absolute top-0 right-0 w-24 h-24 ${cardTheme.glow} rounded-full blur-3xl opacity-20 group-hover:opacity-30 transition-opacity duration-500`} />
                                         <div className="absolute -bottom-6 -left-6 w-20 h-20 bg-purple-500 rounded-full blur-2xl opacity-10 group-hover:scale-150 transition-transform duration-700" />
@@ -254,7 +271,10 @@ export function DueSoonAlert() {
                                                     {expense.description}
                                                 </h4>
                                                 <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mt-0.5">
-                                                    Ref: {dueDate.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}
+                                                    {expense.expenseType === 'installment'
+                                                        ? `Parcela ${expense.currentInstallment}/${expense.installments}`
+                                                        : `Ref: ${dueDate.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}`
+                                                    }
                                                 </p>
 
                                                 {/* Valor com variação */}
@@ -300,7 +320,7 @@ export function DueSoonAlert() {
                                     </div>
                                 )
                             })}
-                        </div>
+                        </ScrollableCards>
                     </>
                 )}
 
@@ -311,7 +331,7 @@ export function DueSoonAlert() {
                             <div className="w-1 h-4 bg-green-500 rounded-full" />
                             Receitas Pendentes
                         </h4>
-                        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+                        <ScrollableCards>
                             {pendingIncomes.map(income => {
                                 const dueDate = new Date(income.dueDate!)
                                 const today = new Date()
@@ -342,7 +362,7 @@ export function DueSoonAlert() {
                                 return (
                                     <div
                                         key={income.id}
-                                        className={`group relative overflow-hidden rounded-xl bg-gradient-to-br ${cardTheme.bgGradient} border-2 ${cardTheme.border} backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-500 ${cardTheme.ring} ring-4 h-[140px]`}
+                                        className={`group relative overflow-hidden rounded-xl bg-gradient-to-br ${cardTheme.bgGradient} border-2 ${cardTheme.border} backdrop-blur-sm shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-500 ${cardTheme.ring} ring-4 h-[140px] min-w-[280px] flex-shrink-0`}
                                     >
                                         <div className={`absolute top-0 right-0 w-24 h-24 ${cardTheme.glow} rounded-full blur-3xl opacity-20 group-hover:opacity-30 transition-opacity duration-500`} />
                                         <div className="absolute -bottom-6 -left-6 w-20 h-20 bg-blue-500 rounded-full blur-2xl opacity-10 group-hover:scale-150 transition-transform duration-700" />
@@ -409,7 +429,7 @@ export function DueSoonAlert() {
                                     </div>
                                 )
                             })}
-                        </div>
+                        </ScrollableCards>
                     </>
                 )}
             </div>

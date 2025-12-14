@@ -48,6 +48,17 @@ export function QuickInsightsWidget() {
 
             const transactions: Transaction[] = Object.values(snapshot.val())
 
+            // Buscar categorias para obter nomes reais
+            const categoriesRef = ref(db, `users/${user.uid}/categories`)
+            const categoriesSnap = await get(categoriesRef)
+            const categoriesMap = new Map<string, string>()
+            
+            if (categoriesSnap.exists()) {
+                Object.entries(categoriesSnap.val()).forEach(([id, cat]: [string, any]) => {
+                    categoriesMap.set(id, cat.name || 'Sem categoria')
+                })
+            }
+
             // 1. Próximo Mês
             const nextMonth = new Date(currentYear, currentMonth + 1, 1)
             const endOfNextMonth = new Date(currentYear, currentMonth + 2, 0, 23, 59, 59)
@@ -73,7 +84,7 @@ export function QuickInsightsWidget() {
             let totalExpenses = 0
             currentExpenses.forEach(tx => {
                 const catId = tx.categoryId || 'sem-categoria'
-                const catName = catId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                const catName = categoriesMap.get(catId) || 'Sem categoria'
                 if (!byCategory[catId]) byCategory[catId] = { total: 0, name: catName }
                 byCategory[catId].total += tx.amount
                 totalExpenses += tx.amount
@@ -174,7 +185,7 @@ export function QuickInsightsWidget() {
             </div>
 
             {/* Lista de Insights com melhor visual */}
-            <div className="p-4 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
                 {/* Próximo Mês */}
                 <div className="relative group">
                     <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-pink-500/5 dark:from-red-500/10 dark:to-pink-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" />

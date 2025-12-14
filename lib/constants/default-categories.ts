@@ -53,6 +53,12 @@ export const DEFAULT_CATEGORIES: Omit<Category, 'id' | 'createdAt' | 'isArchived
     { name: 'Cursos', type: 'expense', icon: 'BookOpen', color: '#2563eb' },
     { name: 'Livros', type: 'expense', icon: 'Book', color: '#1d4ed8' },
     { name: 'Material Escolar', type: 'expense', icon: 'Pencil', color: '#60a5fa' },
+    {
+        name: 'Desenvolvimento Pessoal',
+        icon: 'BookOpen',
+        color: '#9333ea',
+        type: 'expense'
+    },
 
     // DESPESAS - Lazer e Entretenimento
     { name: 'Cinema', type: 'expense', icon: 'Film', color: '#a855f7' },

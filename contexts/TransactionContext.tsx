@@ -72,6 +72,32 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
 
     const createTransaction = async (data: Omit<Transaction, 'id' | 'createdAt'>) => {
         if (!user) return
+
+        // Verificar se está usando reserva de emergência
+        if (data.accountId && data.accountId.startsWith('goal-')) {
+            const goalId = data.accountId.replace('goal-', '')
+
+            // Importar serviço de goals
+            const { ref: dbRef, update, get } = await import('firebase/database')
+            const { db } = await import('@/lib/firebase/config')
+
+            // Debitar da meta
+            const goalRef = dbRef(db, `users/${user.uid}/goals/${goalId}`)
+            const goalSnapshot = await get(goalRef)
+
+            if (goalSnapshot.exists()) {
+                const goal = goalSnapshot.val()
+                const newAmount = goal.currentAmount - data.amount
+
+                await update(goalRef, {
+                    currentAmount: Math.max(0, newAmount),
+                    updatedAt: Date.now()
+                })
+            }
+
+            // Manter accountId como está para referência
+        }
+
         await transactionService.create(user.uid, data)
         await loadTransactions()
         // NÃO chamar refreshAccounts aqui automaticamente
@@ -80,6 +106,30 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
 
     const createTransactionAndRefresh = async (data: Omit<Transaction, 'id' | 'createdAt'>) => {
         if (!user) return
+
+        // Verificar se está usando reserva de emergência
+        if (data.accountId && data.accountId.startsWith('goal-')) {
+            const goalId = data.accountId.replace('goal-', '')
+
+            // Importar serviço de goals
+            const { ref: dbRef, update, get } = await import('firebase/database')
+            const { db } = await import('@/lib/firebase/config')
+
+            // Debitar da meta
+            const goalRef = dbRef(db, `users/${user.uid}/goals/${goalId}`)
+            const goalSnapshot = await get(goalRef)
+
+            if (goalSnapshot.exists()) {
+                const goal = goalSnapshot.val()
+                const newAmount = goal.currentAmount - data.amount
+
+                await update(goalRef, {
+                    currentAmount: Math.max(0, newAmount),
+                    updatedAt: Date.now()
+                })
+            }
+        }
+
         await transactionService.create(user.uid, data)
         await loadTransactions()
         await refreshAccounts() // Atualizar saldo das contas

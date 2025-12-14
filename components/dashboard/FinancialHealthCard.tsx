@@ -3,17 +3,52 @@
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTransactions } from '@/contexts/TransactionContext'
+import { checkUserDataStatus, getInsightAvailabilityMessage, UserDataStatus } from '@/lib/utils/insightsHelper'
+import { EmptyStateCard } from './EmptyStateCard'
 import { financialHealthService, FinancialHealthScore } from '@/lib/services/financial-health.service'
-import { Activity, TrendingUp, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Activity, TrendingUp, AlertTriangle, CheckCircle2, Heart } from 'lucide-react'
 
 export function FinancialHealthCard() {
     const { user } = useAuth()
+    const { transactions, stats } = useTransactions()
     const [data, setData] = useState<FinancialHealthScore | null>(null)
     const [loading, setLoading] = useState(true)
+    const [dataStatus, setDataStatus] = useState<UserDataStatus | null>(null)
+    const [checkingData, setCheckingData] = useState(true)
 
     useEffect(() => {
-        loadData()
+        checkMinimumData()
     }, [user])
+
+    useEffect(() => {
+        if (dataStatus?.hasMinimumData) {
+            loadData()
+        }
+    }, [user, transactions, stats, dataStatus])
+
+    const checkMinimumData = async () => {
+        if (!user) {
+            setCheckingData(false)
+            setLoading(false)
+            return
+        }
+
+        try {
+            const status = await checkUserDataStatus(user.uid)
+            setDataStatus(status)
+            
+            // Se não tem dados mínimos, não precisa carregar
+            if (!status.hasMinimumData) {
+                setLoading(false)
+            }
+        } catch (error) {
+            console.error('Erro ao verificar dados:', error)
+            setLoading(false)
+        } finally {
+            setCheckingData(false)
+        }
+    }
 
     const loadData = async () => {
         if (!user) return
@@ -29,11 +64,26 @@ export function FinancialHealthCard() {
         }
     }
 
-    if (loading) {
+    if (checkingData || loading) {
         return (
             <Card className="animate-pulse h-[140px]">
                 <div className="h-full bg-gray-200 dark:bg-slate-700 rounded" />
             </Card>
+        )
+    }
+
+    // Mostrar empty state se não tem dados suficientes
+    if (!dataStatus?.hasMinimumData) {
+        const message = getInsightAvailabilityMessage(dataStatus!, 'health')
+        return (
+            <EmptyStateCard
+                icon={Heart}
+                title="Saúde Financeira"
+                message={message}
+                availableDate={dataStatus?.availableDate}
+                hint="Vou analisar seu padrão de receitas e despesas!"
+                className="h-auto"
+            />
         )
     }
 

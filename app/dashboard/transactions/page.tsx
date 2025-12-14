@@ -5,7 +5,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Plus, ArrowLeftRight, Edit2, Trash2, Calendar, Search, Wallet, CreditCard as CreditCardIcon } from 'lucide-react'
+import { Plus, ArrowLeftRight, Edit2, Trash2, Calendar, Search, Wallet, CreditCard as CreditCardIcon, CheckCircle2 } from 'lucide-react'
 import { IncomeModal } from '@/components/transactions/IncomeModal'
 import { ExpenseModal } from '@/components/transactions/ExpenseModal'
 import { TransferModal } from '@/components/transactions/TransferModal'
@@ -107,6 +107,10 @@ Deseja continuar?`
         }
         // Se tem conta, mostrar conta
         if (transaction.accountId) {
+            // Verificar se é reserva de emergência
+            if (transaction.accountId.startsWith('goal-')) {
+                return 'Reserva de Emergência'
+            }
             const account = getAccount(transaction.accountId)
             return account?.name || '-'
         }
@@ -150,15 +154,30 @@ Deseja continuar?`
                         Transações
                     </h2>
                     <div className="flex gap-2">
-                        <Button variant="outline" size="lg" onClick={() => setIsIncomeModalOpen(true)}>
+                        <Button
+                            variant="primary"
+                            size="lg"
+                            onClick={() => setIsIncomeModalOpen(true)}
+                            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all"
+                        >
                             <Plus className="w-5 h-5 mr-2" />
                             Nova Receita
                         </Button>
-                        <Button variant="primary" size="lg" onClick={() => setIsExpenseModalOpen(true)}>
+                        <Button
+                            variant="primary"
+                            size="lg"
+                            onClick={() => setIsExpenseModalOpen(true)}
+                            className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white shadow-lg hover:shadow-xl transition-all"
+                        >
                             <Plus className="w-5 h-5 mr-2" />
                             Nova Despesa
                         </Button>
-                        <Button variant="outline" size="lg" onClick={() => setIsTransferModalOpen(true)}>
+                        <Button
+                            variant="primary"
+                            size="lg"
+                            onClick={() => setIsTransferModalOpen(true)}
+                            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all"
+                        >
                             <ArrowLeftRight className="w-5 h-5 mr-2" />
                             Transferir
                         </Button>
@@ -245,13 +264,14 @@ Deseja continuar?`
                         <table className="w-full">
                             <thead className="bg-gray-50 dark:bg-slate-700/50 border-b border-gray-200 dark:border-slate-700">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Descrição</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Categoria</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Origem</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Atribuído</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valor</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ações</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Descrição</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Categoria</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Origem</th>
+                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Atribuído</th>
+                                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valor</th>
+                                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ações</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
@@ -263,34 +283,18 @@ Deseja continuar?`
 
                                     return (
                                         <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                            <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 {new Date(t.date).toLocaleDateString('pt-BR')}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                            <td className="px-3 py-3 whitespace-nowrap">
                                                 <div className="flex items-center gap-2">
                                                     {/* Nome da transação */}
                                                     <span className="text-sm font-medium text-gray-900 dark:text-white">
                                                         {t.description}
                                                     </span>
 
-                                                    {/* Badges inline */}
-                                                    {t.expenseType === 'installment' && t.currentInstallment && t.installments && (
-                                                        <>
-                                                            <span className="text-gray-400 dark:text-gray-500">•</span>
-                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                                                                {t.currentInstallment}/{t.installments}x
-                                                            </span>
-                                                            {t.purchaseDate && (
-                                                                <>
-                                                                    <span className="text-xs text-gray-400 dark:text-gray-500">
-                                                                        {new Date(t.purchaseDate).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '')}
-                                                                    </span>
-                                                                </>
-                                                            )}
-                                                        </>
-                                                    )}
-
-                                                    {t.isRecurring && (
+                                                    {/* Badge Mensal - para recorrentes OU fixas */}
+                                                    {(t.isRecurring === true || t.expenseType === 'fixed') && (
                                                         <>
                                                             <span className="text-gray-400 dark:text-gray-500">•</span>
                                                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
@@ -299,17 +303,37 @@ Deseja continuar?`
                                                         </>
                                                     )}
 
+                                                    {/* Badge À Vista - vermelho (cash OU variable) */}
+                                                    {(t.expenseType === 'cash' || t.expenseType === 'variable') && t.isRecurring !== true && (
+                                                        <>
+                                                            <span className="text-gray-400 dark:text-gray-500">•</span>
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                                                                À Vista
+                                                            </span>
+                                                        </>
+                                                    )}
+
+                                                    {/* Badge Parcelado - roxo com contador */}
+                                                    {t.expenseType === 'installment' && (
+                                                        <>
+                                                            <span className="text-gray-400 dark:text-gray-500">•</span>
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                                                                Parcelado {t.currentInstallment || 1}/{t.installments || 1}x
+                                                            </span>
+                                                        </>
+                                                    )}
+
                                                     {t.type === 'transfer' && (
                                                         <>
                                                             <span className="text-gray-400 dark:text-gray-500">•</span>
-                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300">
                                                                 ↔️
                                                             </span>
                                                         </>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                            <td className="px-3 py-3 whitespace-nowrap">
                                                 <div className="flex items-center">
                                                     <div
                                                         className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center mr-3"
@@ -320,18 +344,39 @@ Deseja continuar?`
                                                     <div className="text-sm text-gray-900 dark:text-white">{category?.name || '-'}</div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                            <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 {getOrigin(t)}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                            <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 {getAssignedName(t.assignedTo)}
                                             </td>
-                                            <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-bold ${t.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                                            <td className="px-3 py-3 whitespace-nowrap text-center">
+                                                {t.isPaid ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                                                        {t.type === 'income' ? 'Recebido' : 'Paga'}
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
+                                                        {t.type === 'income' ? 'Não Recebido' : 'Não Paga'}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className={`px-3 py-3 whitespace-nowrap text-sm text-right font-bold ${t.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                                                 }`}>
                                                 {t.type === 'income' ? '+' : '-'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <td className="px-3 py-3 whitespace-nowrap text-right text-sm font-medium">
                                                 <div className="flex justify-end gap-2">
+                                                    {/* Botão marcar como paga/recebido (somente se NÃO estiver pago) */}
+                                                    {!t.isPaid && (
+                                                        <button
+                                                            onClick={() => updateTransaction(t.id, { isPaid: true })}
+                                                            className="text-green-600 hover:text-green-900 dark:text-green-400"
+                                                            title={t.type === 'income' ? 'Marcar como Recebido' : 'Marcar como Paga'}
+                                                        >
+                                                            <CheckCircle2 className="w-4 h-4" />
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={() => handleEdit(t)}
                                                         className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
